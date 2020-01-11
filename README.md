@@ -45,7 +45,7 @@ score table in `hive_catalog_2`,  if you want to get all student's info who's sc
 
 ```
 SELECT A.* FROM `hive_catalog_1.default`.student A 
-JOIN `hive_catalog_2.db`.score B 
+JOIN `hive_catalog_2.default`.score B 
 ON A.id = B.id AND B.score_num > 90
 ```
 
