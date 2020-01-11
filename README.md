@@ -1,7 +1,7 @@
 # Katana
 
-Katana is a Spark SQL plugin to support Spark use SQL betewwn different Hive Metastore. 
-We will define different `catalog` for different Hive metsatore we will connect and query
+Katana is a Spark SQL plugin to support Spark use SQL between different Hive Metastore. 
+We will define different `catalog` for different Hive Metastore we will connect and query
 data with `catalog`, such as 
 ```
   `[CATALOG].[DB]`.[TABLE]
@@ -21,22 +21,22 @@ Submit spark app with `Katana-${version}.jar` or put it into load jar class path
 ## configuration
 
 ```
-  // when use this, we need to close convert Metastore since have not try with convert open
-	spark.sql.hive.convertMetastoreOrc false
-	spark.sql.hive.convertMetastoreParquet false	
+// when use this, we need to close convert Metastore since have not try with convert open
+spark.sql.hive.convertMetastoreOrc false
+spark.sql.hive.convertMetastoreParquet false	
   
-  // config SparkSessionExtension entrance
-	spark.sql.extensions org.apache.spark.sql.hive.KatanaExtension
+// config SparkSessionExtension entrance
+spark.sql.extensions org.apache.spark.sql.hive.KatanaExtension
   
-  // if your added hive metatsore have data in other HDFS system, you should config with this 
-	spark.yarn.access.hadoopFileSystems hdfs://xxx, hdfs://yyy...etc
+// if your added hive metatsore have data in other HDFS system, you should config with this 
+spark.yarn.access.hadoopFileSystems hdfs://xxx, hdfs://yyy...etc
   
-  // config mounted hive metastore with catalog name hive_catalog_1 & hive_catalog_2 ...
-	spark.sql.hive.catalog.instances hive_catalog_1->hive_metastore_uri1_1,hive_metastore_uri1_2&&hive_catalog_2->hive_metastore_uri2_1,hive_metastore_uri2_2
+// config mounted hive metastore with catalog name hive_catalog_1 & hive_catalog_2 ...
+spark.sql.hive.catalog.instances hive_catalog_1->hive_metastore_uri1_1,hive_metastore_uri1_2&&hive_catalog_2->hive_metastore_uri2_1,hive_metastore_uri2_2
 	
-  // config each catalog corresponding hive metastore's warehouse path 
-  spark.hive.metastore.warehouse.dir.hive_catalog_1 hdfs://hdfs_server_for_hive/path/to/warehouse2
-	spark.hive.metastore.warehouse.dir.hive_catalog_2 hdfs://hdfs_server_for_hive/path/to/warehouse2
+// config each catalog corresponding hive metastore's warehouse path 
+spark.hive.metastore.warehouse.dir.hive_catalog_1 hdfs://hdfs_server_for_hive/path/to/warehouse2
+spark.hive.metastore.warehouse.dir.hive_catalog_2 hdfs://hdfs_server_for_hive/path/to/warehouse2
 ```
 
 ## query
