@@ -1,12 +1,11 @@
 package org.apache.spark.sql.hive.execution.command.show
 
-import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.execution.command.{RunnableCommand, ShowColumnsCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.StringType
-import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 
 import scala.collection.mutable.HashMap
 
@@ -22,33 +21,27 @@ case class KatanaShowColumns(delegate: ShowColumnsCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-
     val resolver = sparkSession.sessionState.conf.resolver
-    val (catalog: SessionCatalog, originDB: String) = delegate.databaseName match {
-      case None => {
-        if (delegate.tableName.database.isEmpty) {
-          val tempCatalog =
-            if (katana.getActiveSessionState() == null)
-              sparkSession.sessionState.catalog
-            else
-              katana.getActiveSessionState().catalog
-          (tempCatalog, tempCatalog.getCurrentDatabase)
-        } else {
-          CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, delegate.tableName.database.get)(sparkSession)
-        }
-      }
+    val catalog = (delegate.databaseName, delegate.catalog) match {
+      case (None, None) =>
+        CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, hiveCatalogs, sparkSession, katana)
 
-      case Some(db) if delegate.tableName.database.exists(!resolver(_, db)) =>
+      case (Some(db), None) if delegate.tableName.database.exists(!resolver(_, db)) =>
         throw new AnalysisException(
           s"SHOW COLUMNS with conflicting databases: '$db' != '${delegate.tableName.database.get}'")
 
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
+      case (Some(db), None) =>
+        CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, hiveCatalogs, sparkSession, katana)
+
+      case (Some(db), Some(_)) if delegate.tableName.database.exists(!resolver(_, db)) =>
+        throw new AnalysisException(
+          s"SHOW COLUMNS with conflicting databases: '$db' != '${delegate.tableName.database.get}'")
+
+      case (Some(_), Some(_)) =>
+        CatalogSchemaUtil.getCatalog(delegate.catalog, hiveCatalogs, sparkSession, katana)
     }
 
-
-    val lookupTable = TableIdentifier(delegate.tableName.identifier, Some(originDB))
-
-    val table = catalog.getTempViewOrPermanentTableMetadata(lookupTable)
+    val table = catalog.getTempViewOrPermanentTableMetadata(delegate.tableName)
     table.schema.map { c =>
       Row(c.name)
     }

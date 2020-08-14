@@ -21,47 +21,28 @@ case class KatanaTruncateTable(delegate: TruncateTableCommand,
                               (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableName.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableName.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
-
-
-    /**
-      * 原生Identifier用于本Identifier所属的Catalog 进行查询
-      */
-    val originTableIdentifier = new TableIdentifier(delegate.tableName.table, Some(originDB))
-
-    /**
-      * 带有Schema的DB 用于在SparkSession 生成 UnresolvedRelation 进行路由
-      */
-    val hiveSchema = hiveCatalogs.find(_._2 == catalog)
-    val withSchemaDB = if (hiveSchema.isDefined) hiveSchema.get._1 + "_" + originDB else originDB
-    val tableIdentifierWithSchema = new TableIdentifier(delegate.tableName.table, Some(withSchemaDB))
-
-    val table = catalog.getTableMetadata(originTableIdentifier)
-
+    val table = catalog.getTableMetadata(delegate.tableName)
+    val tableIdentWithDB = table.identifier.quotedString
 
     if (table.tableType == CatalogTableType.EXTERNAL) {
       throw new AnalysisException(
-        s"Operation not allowed: TRUNCATE TABLE on external tables: $tableIdentifierWithSchema")
+        s"Operation not allowed: TRUNCATE TABLE on external tables: $tableIdentWithDB")
     }
     if (table.tableType == CatalogTableType.VIEW) {
       throw new AnalysisException(
-        s"Operation not allowed: TRUNCATE TABLE on views: $tableIdentifierWithSchema")
+        s"Operation not allowed: TRUNCATE TABLE on views: $tableIdentWithDB")
     }
     if (table.partitionColumnNames.isEmpty && delegate.partitionSpec.isDefined) {
       throw new AnalysisException(
         s"Operation not allowed: TRUNCATE TABLE ... PARTITION is not supported " +
-          s"for tables that are not partitioned: $tableIdentifierWithSchema")
+          s"for tables that are not partitioned: $tableIdentWithDB")
     }
     if (delegate.partitionSpec.isDefined) {
       DDLUtils.verifyPartitionProviderIsHive(sparkSession, table, "TRUNCATE TABLE ... PARTITION")
@@ -101,26 +82,26 @@ case class KatanaTruncateTable(delegate: TruncateTableCommand,
         } catch {
           case NonFatal(e) =>
             throw new AnalysisException(
-              s"Failed to truncate table $tableIdentifierWithSchema when removing data of the path: $path " +
+              s"Failed to truncate table $tableIdentWithDB when removing data of the path: $path " +
                 s"because of ${e.toString}")
         }
       }
     }
     // After deleting the data, invalidate the table to make sure we don't keep around a stale
     // file relation in the metastore cache.
-    catalog.refreshTable(originTableIdentifier)
+    catalog.refreshTable(delegate.tableName)
     // Also try to drop the contents of the table from the columnar cache
     try {
-      sparkSession.sharedState.cacheManager.uncacheQuery(sparkSession.table(tableIdentifierWithSchema), cascade = true)
+      sparkSession.sharedState.cacheManager.uncacheQuery(sparkSession.table(tableIdentWithDB), cascade = true)
     } catch {
       case NonFatal(e) =>
-        log.warn(s"Exception when attempting to uncache table $tableIdentifierWithSchema", e)
+        log.warn(s"Exception when attempting to uncache table $tableIdentWithDB", e)
     }
 
     if (table.stats.nonEmpty) {
       // empty table after truncation
       val newStats = CatalogStatistics(sizeInBytes = 0, rowCount = Some(0))
-      catalog.alterTableStats(originTableIdentifier, Some(newStats))
+      catalog.alterTableStats(delegate.tableName, Some(newStats))
     }
     Seq.empty[Row]
   }

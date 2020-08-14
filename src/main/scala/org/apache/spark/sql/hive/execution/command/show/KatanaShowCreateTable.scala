@@ -1,6 +1,5 @@
 package org.apache.spark.sql.hive.execution.command.show
 
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.catalog.CatalogTableType.{EXTERNAL, MANAGED, VIEW}
 import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogUtils, SessionCatalog}
@@ -24,23 +23,14 @@ case class KatanaShowCreateTable(delegate: ShowCreateTableCommand,
   )
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.table.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val (catalog: SessionCatalog, originDB: String) = delegate.table.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
-
-    val originTableIdentifier = new TableIdentifier(table = delegate.table.table, database = Some(originDB))
-
-
-    val tableMetadata = catalog.getTableMetadata(originTableIdentifier)
+    val tableMetadata = catalog.getTableMetadata(delegate.table)
 
     // TODO: unify this after we unify the CREATE TABLE syntax for hive serde and data source table.
     val stmt = if (DDLUtils.isDatasourceTable(tableMetadata)) {

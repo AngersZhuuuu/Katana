@@ -8,6 +8,7 @@ import org.apache.spark.sql.hive.analyze.{KatanaHiveDDLRule, KatanaHiveRelationR
 import org.apache.spark.sql.hive.parser.KatanaIdentifierParser
 import org.apache.spark.sql.hive.strategy.{KatanaBasicOperators, KatanaHiveStrategies}
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions, Strategy}
+import org.apache.spark.sql.hive.KatanaContext.INTERNAL_HMS_NAME
 
 /**
   * @author angers.zhu@gmail.com
@@ -43,9 +44,9 @@ object KatanaExtension {
   }
 
   def getOrCreateKatanaContext(sparkSession: SparkSession): KatanaContext = CONTEXT_LOCK.synchronized {
-
-    if (katanaStatus.get() == null || (katanaContext.get() != null && katanaStatus.get() != CONSTRUCTED)
-      || (katanaContext.get() != null && katanaContext.get().sessionId != sparkSession.hashCode())) {
+    if (katanaStatus.get() == null ||
+      (katanaContext.get() != null && katanaStatus.get() != CONSTRUCTED) ||
+      (katanaContext.get() != null && katanaContext.get().sessionId != sparkSession.hashCode())) {
       katanaContext.remove()
       val katana = new KatanaContext(sparkSession)
       katana.initial()
@@ -54,6 +55,5 @@ object KatanaExtension {
     }
     katanaContext.get
   }
-
 }
 

@@ -3,7 +3,7 @@ package org.apache.spark.sql.hive.execution.command.desc
 import org.apache.spark.sql.catalyst.catalog.{CatalogDatabase, CatalogUtils, SessionCatalog}
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.execution.command.{DescribeDatabaseCommand, RunnableCommand}
-import org.apache.spark.sql.hive.CatalogSchemaUtil
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.{Row, SparkSession}
 
@@ -14,7 +14,8 @@ import scala.collection.mutable.HashMap
   * @date 2019/5/29 10:42
   */
 case class KatanaDescDatabase(delegate: DescribeDatabaseCommand,
-                              hiveCatalogs: HashMap[String, SessionCatalog]) extends RunnableCommand {
+                              hiveCatalogs: HashMap[String, SessionCatalog])
+                             (@transient private val katana: KatanaContext)extends RunnableCommand {
 
   override val output: Seq[Attribute] = {
     AttributeReference("database_description_item", StringType, nullable = false)() ::
@@ -22,10 +23,10 @@ case class KatanaDescDatabase(delegate: DescribeDatabaseCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog, originDB) = CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, delegate.databaseName)(sparkSession)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, hiveCatalogs, sparkSession, katana)
 
     val dbMetadata: CatalogDatabase =
-      catalog.getDatabaseMetadata(originDB)
+      catalog.getDatabaseMetadata(delegate.databaseName)
     val result =
       Row("Database Name", dbMetadata.name) ::
         Row("Description", dbMetadata.description) ::

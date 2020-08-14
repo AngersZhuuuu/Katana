@@ -19,53 +19,42 @@ case class KatanaAlterTableRename(delegate: AlterTableRenameCommand,
                                  (@transient private val katana: KatanaContext)extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-
-    val (catalog: SessionCatalog, originDB: String) = delegate.oldName.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
+    // 不能跨 meta rename table
+    if(delegate.oldName.catalog != delegate.newName.catalog) {
+      throw new RuntimeException("Katana can't rename table between different catalog")
     }
 
-
-    val hiveSchema = hiveCatalogs.find(_._2 == catalog)
-    val withSchemaDB = if (hiveSchema.isDefined) hiveSchema.get._1 + "_" + originDB else originDB
-
-    val originOldTableIdentifierWithSchema = new TableIdentifier(delegate.oldName.table, Some(withSchemaDB))
-    val originOldTableIdentifier = new TableIdentifier(delegate.oldName.table, Some(originDB))
-
-    val originNewTableIdentifierWithSchema = new TableIdentifier(delegate.newName.table, Some(withSchemaDB))
-    val originNewTableIdentifierWithOutSchema = new TableIdentifier(delegate.newName.table, Some(originDB))
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.oldName.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
     // If this is a temp view, just rename the view.
     // Otherwise, if this is a real table, we also need to uncache and invalidate the table.
-    if (catalog.isTemporaryTable(originOldTableIdentifier)) {
-      catalog.renameTable(originOldTableIdentifier, originNewTableIdentifierWithOutSchema)
+    if (catalog.isTemporaryTable(delegate.oldName)) {
+      catalog.renameTable(delegate.oldName, delegate.newName)
     } else {
-      val table = catalog.getTableMetadata(originOldTableIdentifier)
+      val table = catalog.getTableMetadata(delegate.oldName)
       DDLUtils.verifyAlterTableType(catalog, table, delegate.isView)
       // If an exception is thrown here we can just assume the table is uncached;
       // this can happen with Hive tables when the underlying catalog is in-memory.
-      val wasCached = Try(sparkSession.catalog.isCached(originOldTableIdentifierWithSchema.unquotedString)).getOrElse(false)
+      val wasCached = Try(sparkSession.catalog.isCached(delegate.oldName.unquotedString)).getOrElse(false)
       if (wasCached) {
         try {
-          sparkSession.catalog.uncacheTable(originOldTableIdentifierWithSchema.unquotedString)
+          sparkSession.catalog.uncacheTable(delegate.oldName.unquotedString)
         } catch {
           case NonFatal(e) => log.warn(e.toString, e)
         }
       }
       // Invalidate the table last, otherwise uncaching the table would load the logical plan
       // back into the hive metastore cache
-      catalog.refreshTable(originOldTableIdentifier)
-      catalog.renameTable(originOldTableIdentifier, originNewTableIdentifierWithOutSchema)
+      catalog.refreshTable(delegate.oldName)
+      catalog.renameTable(delegate.oldName, delegate.newName)
       if (wasCached) {
         //        Cache With Hive Schema Prefix
-        sparkSession.catalog.cacheTable(originNewTableIdentifierWithSchema.quotedString)
+        sparkSession.catalog.cacheTable(delegate.newName.quotedString)
       }
     }
     Seq.empty[Row]

@@ -20,22 +20,14 @@ case class KatanaAlterTableSetLocation(delegate: AlterTableSetLocationCommand,
                                        @transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableName.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableName.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
-
-    val originOldTableIdentifier = new TableIdentifier(delegate.tableName.table, Some(originDB))
-
-    val table = catalog.getTableMetadata(originOldTableIdentifier)
+    val table = catalog.getTableMetadata(delegate.tableName)
     val locUri = CatalogUtils.stringToURI(delegate.location)
     DDLUtils.verifyAlterTableType(catalog, table, isView = false)
     delegate.partitionSpec match {

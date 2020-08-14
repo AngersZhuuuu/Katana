@@ -18,22 +18,17 @@ case class KatanaDropFunction(delegate: DropFunctionCommand,
                              (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.databaseName match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
     if (delegate.isTemp) {
       if (delegate.databaseName.isDefined) {
         throw new AnalysisException(s"Specifying a database in DROP TEMPORARY FUNCTION " +
-          s"is not allowed: '${originDB}'")
+          s"is not allowed: '${delegate.databaseName}'")
       }
       if (FunctionRegistry.builtin.functionExists(FunctionIdentifier(delegate.functionName))) {
         throw new AnalysisException(s"Cannot drop native function '${delegate.functionName}'")
@@ -42,7 +37,7 @@ case class KatanaDropFunction(delegate: DropFunctionCommand,
     } else {
       // We are dropping a permanent function.
       catalog.dropFunction(
-        FunctionIdentifier(delegate.functionName, Some(originDB)),
+        FunctionIdentifier(delegate.functionName, delegate.databaseName),
         ignoreIfNotExists = delegate.ifExists)
     }
     Seq.empty[Row]

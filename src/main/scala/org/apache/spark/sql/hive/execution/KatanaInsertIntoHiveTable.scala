@@ -5,7 +5,8 @@ import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hive.ql.ErrorMsg
 import org.apache.hadoop.hive.ql.plan.TableDesc
 import org.apache.spark.SparkException
-import org.apache.spark.sql.catalyst.catalog.{CatalogTable, ExternalCatalog, SessionCatalog}
+import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
+import org.apache.spark.sql.catalyst.catalog._
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
@@ -13,15 +14,14 @@ import org.apache.spark.sql.hive.HiveShim.{ShimFileSinkDesc => FileSinkDesc}
 import org.apache.spark.sql.hive.client.HiveClientImpl
 import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
 import org.apache.spark.sql.internal.SessionState
-import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 
 /**
-  * @author angers.zhu@gmail.com
-  * @date 2019/5/28 19:14
-  *
-  *       因为原油的InsertIntoHiveTable使用的是默认的SparkSession的session catalog
-  *       在这里使用 KatanaInsertIntoHiveTable 做替换
-  */
+ * @author angers.zhu@gmail.com
+ * @date 2019/5/28 19:14
+ *
+ *       因为原油的InsertIntoHiveTable使用的是默认的SparkSession的session catalog
+ *       在这里使用 KatanaInsertIntoHiveTable 做替换
+ */
 case class KatanaInsertIntoHiveTable(table: CatalogTable,
                                      partition: Map[String, Option[String]],
                                      query: LogicalPlan,
@@ -32,10 +32,10 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
                                      @transient private val sessionState: SessionState) extends SaveAsHiveFile {
 
   /**
-    * Inserts all the rows in the table into Hive.  Row objects are properly serialized with the
-    * `org.apache.hadoop.hive.serde2.SerDe` and the
-    * `org.apache.hadoop.mapred.OutputFormat` provided by the table definition.
-    */
+   * Inserts all the rows in the table into Hive.  Row objects are properly serialized with the
+   * `org.apache.hadoop.hive.serde2.SerDe` and the
+   * `org.apache.hadoop.mapred.OutputFormat` provided by the table definition.
+   */
   override def run(sparkSession: SparkSession, child: SparkPlan): Seq[Row] = {
     val externalCatalog = catalog.externalCatalog
     val hadoopConf = sessionState.newHadoopConf()
@@ -63,9 +63,9 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
     }
 
     /**
-      * 如果是额外配置的Hive，则其表没有在SparkSession 的catalog缓存中，
-      * 也没必要un-cache，且会报错
-      */
+     * 如果是额外配置的Hive，则其表没有在SparkSession 的catalog缓存中，
+     * 也没必要un-cache，且会报错
+     */
     if (catalog == sparkSession.sessionState.catalog) {
       sparkSession.catalog.uncacheTable(table.identifier.quotedString)
     }
@@ -101,15 +101,9 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
     // By this time, the partition map must match the table's partition columns
     if (partitionColumnNames.toSet != partition.keySet) {
       throw new SparkException(
-        s"""Requested partitioning does not match the ${
-          table.identifier.table
-        } table:
-           |Requested partitions: ${
-          partition.keys.mkString(",")
-        }
-           |Table partitions: ${
-          table.partitionColumnNames.mkString(",")
-        }""".stripMargin)
+        s"""Requested partitioning does not match the ${table.identifier.table} table:
+           |Requested partitions: ${partition.keys.mkString(",")}
+           |Table partitions: ${table.partitionColumnNames.mkString(",")}""".stripMargin)
     }
 
     // Validate partition spec if there exist any dynamic partitions
@@ -131,6 +125,7 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
         throw new AnalysisException(ErrorMsg.PARTITION_DYN_STA_ORDER.getMsg)
       }
     }
+
     table.bucketSpec match {
       case Some(bucketSpec) =>
         // Writes to bucketed hive tables are allowed only if user does not care about maintaining
@@ -139,9 +134,7 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
         val enforceBucketingConfig = "hive.enforce.bucketing"
         val enforceSortingConfig = "hive.enforce.sorting"
 
-        val message = s"Output Hive table ${
-          table.identifier
-        } is bucketed but Spark " +
+        val message = s"Output Hive table ${table.identifier} is bucketed but Spark " +
           "currently does NOT populate bucketed output which is compatible with Hive."
 
         if (hadoopConf.get(enforceBucketingConfig, "true").toBoolean ||
@@ -153,16 +146,15 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
         }
       case _ => // do nothing since table has no bucketing
     }
-    val partitionAttributes = partitionColumnNames.takeRight(numDynamicPartitions).map {
-      name =>
-        query.resolve(name :: Nil, sparkSession.sessionState.analyzer.resolver).getOrElse {
-          throw new AnalysisException(
-            s"Unable to resolve $name given [${
-              query.output.map(_.name).mkString(", ")
-            }]")
-        }.asInstanceOf[Attribute]
+
+    val partitionAttributes = partitionColumnNames.takeRight(numDynamicPartitions).map { name =>
+      query.resolve(name :: Nil, sparkSession.sessionState.analyzer.resolver).getOrElse {
+        throw new AnalysisException(
+          s"Unable to resolve $name given [${query.output.map(_.name).mkString(", ")}]")
+      }.asInstanceOf[Attribute]
     }
-    saveAsHiveFile(
+
+    val writtenParts = saveAsHiveFile(
       sparkSession = sparkSession,
       plan = child,
       hadoopConf = hadoopConf,
@@ -172,6 +164,42 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
 
     if (partition.nonEmpty) {
       if (numDynamicPartitions > 0) {
+        if (overwrite && table.tableType == CatalogTableType.EXTERNAL) {
+          // SPARK-29295: When insert overwrite to a Hive external table partition, if the
+          // partition does not exist, Hive will not check if the external partition directory
+          // exists or not before copying files. So if users drop the partition, and then do
+          // insert overwrite to the same partition, the partition will have both old and new
+          // data. We construct partition path. If the path exists, we delete it manually.
+          writtenParts.foreach { partPath =>
+            val dpMap = partPath.split("/").map { part =>
+              val splitPart = part.split("=")
+              assert(splitPart.size == 2, s"Invalid written partition path: $part")
+              ExternalCatalogUtils.unescapePathName(splitPart(0)) ->
+                ExternalCatalogUtils.unescapePathName(splitPart(1))
+            }.toMap
+
+            val updatedPartitionSpec = partition.map {
+              case (key, Some(value)) => key -> value
+              case (key, None) if dpMap.contains(key) => key -> dpMap(key)
+              case (key, _) =>
+                throw new SparkException(s"Dynamic partition key $key is not among " +
+                  "written partition paths.")
+            }
+            val partitionColumnNames = table.partitionColumnNames
+            val tablePath = new Path(table.location)
+            val partitionPath = ExternalCatalogUtils.generatePartitionPath(updatedPartitionSpec,
+              partitionColumnNames, tablePath)
+
+            val fs = partitionPath.getFileSystem(hadoopConf)
+            if (fs.exists(partitionPath)) {
+              if (!fs.delete(partitionPath, true)) {
+                throw new RuntimeException(
+                  "Cannot remove partition directory '" + partitionPath.toString)
+              }
+            }
+          }
+        }
+
         externalCatalog.loadDynamicPartitions(
           db = table.database,
           table = table.identifier.table,
@@ -193,25 +221,38 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
         var doHiveOverwrite = overwrite
 
         if (oldPart.isEmpty || !ifPartitionNotExists) {
+          // SPARK-29295: When insert overwrite to a Hive external table partition, if the
+          // partition does not exist, Hive will not check if the external partition directory
+          // exists or not before copying files. So if users drop the partition, and then do
+          // insert overwrite to the same partition, the partition will have both old and new
+          // data. We construct partition path. If the path exists, we delete it manually.
+          val partitionPath = if (oldPart.isEmpty && overwrite
+            && table.tableType == CatalogTableType.EXTERNAL) {
+            val partitionColumnNames = table.partitionColumnNames
+            val tablePath = new Path(table.location)
+            Some(ExternalCatalogUtils.generatePartitionPath(partitionSpec,
+              partitionColumnNames, tablePath))
+          } else {
+            oldPart.flatMap(_.storage.locationUri.map(uri => new Path(uri)))
+          }
           // SPARK-18107: Insert overwrite runs much slower than hive-client.
           // Newer Hive largely improves insert overwrite performance. As Spark uses older Hive
           // version and we may not want to catch up new Hive version every time. We delete the
           // Hive partition first and then load data file into the Hive partition.
-          if (oldPart.nonEmpty && overwrite) {
-            oldPart.get.storage.locationUri.foreach {
-              uri =>
-                val partitionPath = new Path(uri)
-                val fs = partitionPath.getFileSystem(hadoopConf)
-                if (fs.exists(partitionPath)) {
-                  if (!fs.delete(partitionPath, true)) {
-                    throw new RuntimeException(
-                      "Cannot remove partition directory '" + partitionPath.toString)
-                  }
-                  // Don't let Hive do overwrite operation since it is slower.
-                  doHiveOverwrite = false
+          if (partitionPath.nonEmpty && overwrite) {
+            partitionPath.foreach { path =>
+              val fs = path.getFileSystem(hadoopConf)
+              if (fs.exists(path)) {
+                if (!fs.delete(path, true)) {
+                  throw new RuntimeException(
+                    "Cannot remove partition directory '" + path.toString)
                 }
+                // Don't let Hive do overwrite operation since it is slower.
+                doHiveOverwrite = false
+              }
             }
           }
+
           // inheritTableSpecs is set to true. It should be set to false for an IMPORT query
           // which is currently considered as a Hive native command.
           val inheritTableSpecs = true

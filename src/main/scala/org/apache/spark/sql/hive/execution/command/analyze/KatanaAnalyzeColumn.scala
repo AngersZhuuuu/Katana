@@ -27,38 +27,21 @@ case class KatanaAnalyzeColumn(delegate: AnalyzeColumnCommand,
                                @transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableIdent.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableIdent.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    /**
-      * 原生Identifier用于本Identifier所属的Catalog 进行查询
-      */
-    val originTableIdentifier = new TableIdentifier(delegate.tableIdent.table, Some(originDB))
-
-    /**
-      * 带有Schema的DB 用于在SparkSession 生成 UnresolvedRelation 进行路由
-      */
-    val hiveSchema = hiveCatalogs.find(_._2 == catalog)
-    val withSchemaDB = if (hiveSchema.isDefined) hiveSchema.get._1 + "_" + originDB else originDB
-    val tableIdentifierWithSchema = new TableIdentifier(delegate.tableIdent.table, Some(withSchemaDB))
-
-    val tableMeta = catalog.getTableMetadata(originTableIdentifier)
+    val tableMeta = catalog.getTableMetadata(delegate.tableIdent)
     if (tableMeta.tableType == CatalogTableType.VIEW) {
       throw new AnalysisException("ANALYZE TABLE is not supported on views.")
     }
-    val sizeInBytes = KatanaCommandUtils.calculateTotalSize(catalog, tableIdentifierWithSchema, sessionState, sparkSession, tableMeta)
+    val sizeInBytes = KatanaCommandUtils.calculateTotalSize(catalog, delegate.tableIdent, sessionState, sparkSession, tableMeta)
 
     // Compute stats for each column
-    val (rowCount, newColStats) = computeColumnStats(sparkSession, tableIdentifierWithSchema, delegate.columnNames)
+    val (rowCount, newColStats) = computeColumnStats(sparkSession, delegate.tableIdent, delegate.columnNames)
 
     // We also update table-level stats in order to keep them consistent with column-level stats.
     val statistics = CatalogStatistics(
@@ -67,7 +50,7 @@ case class KatanaAnalyzeColumn(delegate: AnalyzeColumnCommand,
       // Newly computed column stats should override the existing ones.
       colStats = tableMeta.stats.map(_.colStats).getOrElse(Map.empty) ++ newColStats)
 
-    catalog.alterTableStats(originTableIdentifier, Some(statistics))
+    catalog.alterTableStats(delegate.tableIdent, Some(statistics))
 
     Seq.empty[Row]
   }

@@ -10,8 +10,9 @@ import org.apache.spark.sql.catalyst.{FunctionIdentifier, TableIdentifier}
 import org.apache.spark.sql.execution.SparkSqlParser
 import org.apache.spark.sql.execution.command._
 import org.apache.spark.sql.execution.datasources.CreateTable
-import org.apache.spark.sql.hive.KatanaContext
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.{DataType, StructType}
+import org.apache.spark.SparkException
 
 import scala.collection.mutable.HashMap
 
@@ -27,22 +28,34 @@ case class KatanaIdentifierParser(getOrCreateKatanaContext: SparkSession => Kata
   private val hiveCatalogs: HashMap[String, SessionCatalog] = katanaContext.hiveCatalogs
   private lazy val internal = new SparkSqlParser(sparkSession.sqlContext.conf)
 
+  // 补全 database 和 catalog 信息， 如果是默认catalog，catalog位为空
   def qualifyTableIdentifierInternal(tableIdentifier: TableIdentifier): TableIdentifier = {
-    val catalog: SessionCatalog =
-      if (katanaContext.getActiveSessionState() == null)
-        sparkSession.sessionState.catalog
-      else
-        katanaContext.getActiveSessionState().catalog
-    val originDB = catalog.getCurrentDatabase
-    val hiveSchema = hiveCatalogs.find(_._2 == catalog)
-    val withSchemaDB = if (hiveSchema.isDefined) hiveSchema.get._1 + "_" + originDB else originDB
-    TableIdentifier(
-      tableIdentifier.table,
-      Some(withSchemaDB)
-    )
+    val catalog = katanaContext.getActiveSessionState.getOrElse(sparkSession.sessionState).catalog
+    val currentDB = catalog.getCurrentDatabase
+    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, hiveCatalogs)
+    if (catalogName.isEmpty) {
+      throw new SparkException("Can't find current catalog")
+    } else {
+      if (tableIdentifier.catalog.isEmpty && tableIdentifier.database.isEmpty) {
+        TableIdentifier(
+          tableIdentifier.table,
+          Some(currentDB),
+          catalogName)
+      } else if (tableIdentifier.catalog.isEmpty) {
+        TableIdentifier(
+          tableIdentifier.table,
+          tableIdentifier.database,
+          catalogName)
+      } else {
+        // 不存在catalog 为空，同时database 不为空
+        tableIdentifier
+      }
+    }
   }
 
-  def needQualify(tableIdentifier: TableIdentifier): Boolean = tableIdentifier.database.isEmpty
+  def needQualify(tableIdentifier: TableIdentifier): Boolean = {
+    tableIdentifier.database.isEmpty || tableIdentifier.catalog.isEmpty
+  }
 
   private val qualifyTableIdentifier: PartialFunction[LogicalPlan, LogicalPlan] = {
     case r@UnresolvedRelation(tableIdentifier) if needQualify(tableIdentifier) =>
@@ -57,26 +70,7 @@ case class KatanaIdentifierParser(getOrCreateKatanaContext: SparkSession => Kata
           .map(p => (p._1, p._2.transform(qualifyTableIdentifier).asInstanceOf[SubqueryAlias]))
       )
     case ct@CreateTable(tableDesc, _, _) =>
-      val originTableDesc = new CatalogTable(qualifyTableIdentifierInternal(tableDesc.identifier),
-        tableDesc.tableType,
-        tableDesc.storage,
-        tableDesc.schema,
-        tableDesc.provider,
-        tableDesc.partitionColumnNames,
-        tableDesc.bucketSpec,
-        tableDesc.owner,
-        tableDesc.createTime,
-        tableDesc.lastAccessTime,
-        tableDesc.createVersion,
-        tableDesc.properties,
-        tableDesc.stats,
-        tableDesc.viewText,
-        tableDesc.comment,
-        tableDesc.unsupportedFeatures,
-        tableDesc.tracksPartitionsInCatalog,
-        tableDesc.schemaPreservesCase,
-        tableDesc.ignoredProperties)
-      ct.copy(tableDesc = originTableDesc)
+      ct.copy(tableDesc = tableDesc.copy(identifier = qualifyTableIdentifierInternal(tableDesc.identifier)))
     case cv@CreateViewCommand(name, _, _, _, _, child, _, _, _) =>
       cv.copy(name = qualifyTableIdentifierInternal(name), child = child transform qualifyTableIdentifier)
     case e@ExplainCommand(plan, _, _, _) =>

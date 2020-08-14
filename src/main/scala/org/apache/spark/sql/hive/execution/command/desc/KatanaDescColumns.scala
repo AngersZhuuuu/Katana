@@ -29,22 +29,14 @@ case class KatanaDescColumns(delegate: DescribeColumnCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-
-    val (catalog: SessionCatalog, originDB: String) = delegate.table.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.table.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
     val resolver = sparkSession.sessionState.conf.resolver
-
-    val originTableIdentifier = new TableIdentifier(table = delegate.table.table, database = Some(originDB))
 
     val relation = sparkSession.table(delegate.table).queryExecution.analyzed
 
@@ -60,7 +52,7 @@ case class KatanaDescColumns(delegate: DescribeColumnCommand,
         s"DESC TABLE COLUMN command does not support nested data types: $colName")
     }
 
-    val catalogTable = catalog.getTempViewOrPermanentTableMetadata(originTableIdentifier)
+    val catalogTable = catalog.getTempViewOrPermanentTableMetadata(delegate.table)
     val colStats = catalogTable.stats.map(_.colStats).getOrElse(Map.empty)
     val cs = colStats.get(field.name)
 

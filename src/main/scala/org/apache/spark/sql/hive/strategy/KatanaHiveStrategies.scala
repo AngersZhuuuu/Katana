@@ -59,7 +59,10 @@ case class KatanaHiveStrategies(getOrCreateKatanaContext: SparkSession => Katana
         !predicate.references.isEmpty &&
           predicate.references.subsetOf(partitionKeyIds)
       }
-      val catalog = CatalogSchemaUtil.getCatalog(hiveCatalogs, relation)(sparkSession)
+      val catalog =
+        CatalogSchemaUtil.getCatalog(
+          relation.tableMeta.identifier.catalog,
+          hiveCatalogs, sparkSession, katanaContext)
       pruneFilterProject(
         projectList,
         otherPredicates,

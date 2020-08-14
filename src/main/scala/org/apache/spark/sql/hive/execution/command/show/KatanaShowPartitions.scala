@@ -1,11 +1,10 @@
 package org.apache.spark.sql.hive.execution.command.show
 
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.execution.command.{DDLUtils, RunnableCommand, ShowPartitionsCommand}
-import org.apache.spark.sql.hive.{KatanaContext, KatanaExtension, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.catalyst.catalog.CatalogTableType._
 
@@ -23,21 +22,14 @@ case class KatanaShowPartitions(delegate: ShowPartitionsCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableName.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableName.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val originTableIdentifier = new TableIdentifier(delegate.tableName.table, Some(originDB))
-
-    val table = catalog.getTableMetadata(originTableIdentifier)
+    val table = catalog.getTableMetadata(delegate.tableName)
     val tableIdentWithDB = table.identifier.quotedString
 
     /**
@@ -71,7 +63,7 @@ case class KatanaShowPartitions(delegate: ShowPartitionsCommand,
       }
     }
 
-    val partNames = catalog.listPartitionNames(originTableIdentifier, delegate.spec)
+    val partNames = catalog.listPartitionNames(delegate.tableName, delegate.spec)
     partNames.map(Row(_))
   }
 }

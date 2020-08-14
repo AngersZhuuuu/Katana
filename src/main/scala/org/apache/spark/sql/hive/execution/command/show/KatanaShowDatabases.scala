@@ -15,22 +15,23 @@ import scala.collection.mutable.HashMap
 case class KatanaShowDatabases(delegate: ShowDatabasesCommand,
                                hiveCatalogs: HashMap[String, SessionCatalog]) extends RunnableCommand {
   override val output: Seq[Attribute] = {
-    //    AttributeReference("schemaName", StringType, nullable = false)() ::
-    AttributeReference("databaseName", StringType, nullable = false)() :: Nil
+    AttributeReference("catalog", StringType, nullable = false)() ::
+      AttributeReference("databaseName", StringType, nullable = false)() :: Nil
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
+//    val catalog = sparkSession.sessionState.catalog
+//    val databases =
+//      delegate.databasePattern.map(catalog.listDatabases).getOrElse(catalog.listDatabases())
+//        .map("default" -> _)
 
-    val catalog = sparkSession.sessionState.catalog
-    val databases =
-      delegate.databasePattern.map(catalog.listDatabases).getOrElse(catalog.listDatabases())
+    // Current hive catalog map have contain internal hive catalog
+    val externalDatabases: Seq[(String, String)] =
+      hiveCatalogs.map { case (name, catalog) =>
+        delegate.databasePattern.map(catalog.listDatabases).getOrElse(catalog.listDatabases)
+          .map(name -> _)
+      }.flatten.toSeq
 
-    val externalDatabases: Seq[String] =
-      hiveCatalogs.map(schemaAndCatalog => {
-        delegate.databasePattern.map(schemaAndCatalog._2.listDatabases).getOrElse(schemaAndCatalog._2.listDatabases)
-          .map(schemaAndCatalog._1 + "_" + _)
-      }).flatten.toSeq
-
-    (databases ++ externalDatabases).map { d => Row(d) }
+    externalDatabases.map { case (catalog, db) => Row(catalog, db) }
   }
 }

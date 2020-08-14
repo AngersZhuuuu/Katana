@@ -1,6 +1,5 @@
 package org.apache.spark.sql.hive.execution.command.show
 
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.execution.command.{RunnableCommand, ShowTablePropertiesCommand}
@@ -27,24 +26,17 @@ case class KatanaShowTableProperties(delegate: ShowTablePropertiesCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.table.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
-    val originTableIdentifier = new TableIdentifier(table = delegate.table.table, database = Some(originDB))
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.table.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    if (catalog.isTemporaryTable(originTableIdentifier)) {
+    if (catalog.isTemporaryTable(delegate.table)) {
       Seq.empty[Row]
     } else {
-      val catalogTable = catalog.getTableMetadata(originTableIdentifier)
-
+      val catalogTable = catalog.getTableMetadata(delegate.table)
       delegate.propertyKey match {
         case Some(p) =>
           val propValue = catalogTable

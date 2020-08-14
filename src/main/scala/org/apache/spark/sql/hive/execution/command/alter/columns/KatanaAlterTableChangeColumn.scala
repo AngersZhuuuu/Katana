@@ -20,20 +20,14 @@ case class KatanaAlterTableChangeColumn(delegate: AlterTableChangeColumnCommand,
 
   // TODO: support change column name/dataType/metadata/position.
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableName.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableName.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val originTableIdentifier = new TableIdentifier(delegate.tableName.table, Some(originDB))
-    val table = catalog.getTableMetadata(originTableIdentifier)
+    val table = catalog.getTableMetadata(delegate.tableName)
     val resolver = sparkSession.sessionState.conf.resolver
     DDLUtils.verifyAlterTableType(catalog, table, isView = false)
 
@@ -55,7 +49,7 @@ case class KatanaAlterTableChangeColumn(delegate: AlterTableChangeColumnCommand,
         field
       }
     }
-    catalog.alterTableDataSchema(originTableIdentifier, StructType(newDataSchema))
+    catalog.alterTableDataSchema(delegate.tableName, StructType(newDataSchema))
 
     Seq.empty[Row]
   }

@@ -16,37 +16,21 @@ case class KatanaCreateTableLike(delegate: CreateTableLikeCommand,
                                  hiveCatalogs: HashMap[String, SessionCatalog])
                                 (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalogTarget: SessionCatalog, originTargetDB: String) = delegate.targetTable.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalogTarget =
+      CatalogSchemaUtil.getCatalog(
+        delegate.targetTable.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val originTargetTableIdentifier = new TableIdentifier(delegate.targetTable.table, Some(originTargetDB))
+    val catalogSource =
+      CatalogSchemaUtil.getCatalog(
+        delegate.sourceTable.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-
-    val (catalogSource: SessionCatalog, originSourceDB: String) = delegate.sourceTable.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
-
-    val originSourceTableIdentifier = new TableIdentifier(delegate.sourceTable.table, Some(originSourceDB))
-
-
-    val sourceTableDesc = catalogSource.getTempViewOrPermanentTableMetadata(originSourceTableIdentifier)
+    val sourceTableDesc = catalogSource.getTempViewOrPermanentTableMetadata(delegate.sourceTable)
 
     val newProvider = if (sourceTableDesc.tableType == CatalogTableType.VIEW) {
       Some(sparkSession.sessionState.conf.defaultDataSourceName)
@@ -60,7 +44,7 @@ case class KatanaCreateTableLike(delegate: CreateTableLikeCommand,
 
     val newTableDesc =
       CatalogTable(
-        identifier = originTargetTableIdentifier,
+        identifier = delegate.targetTable,
         tableType = tblType,
         storage = sourceTableDesc.storage.copy(
           locationUri = delegate.location.map(CatalogUtils.stringToURI(_))),

@@ -51,31 +51,14 @@ case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableIdent.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableIdent.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    /**
-      * 原生Identifier用于本Identifier所属的Catalog 进行查询
-      */
-    val originTableIdentifier = new TableIdentifier(delegate.tableIdent.table, Some(originDB))
-
-    /**
-      * 带有Schema的DB 用于在SparkSession 生成 UnresolvedRelation 进行路由
-      */
-    val hiveSchema = hiveCatalogs.find(_._2 == catalog)
-    val withSchemaDB = if (hiveSchema.isDefined) hiveSchema.get._1 + "_" + originDB else originDB
-    val tableIdentifierWithSchema = new TableIdentifier(delegate.tableIdent.table, Some(withSchemaDB))
-
-    val tableMeta = catalog.getTableMetadata(originTableIdentifier)
+    val tableMeta = catalog.getTableMetadata(delegate.tableIdent)
     if (tableMeta.tableType == CatalogTableType.VIEW) {
       throw new AnalysisException("ANALYZE TABLE is not supported on views.")
     }
@@ -86,7 +69,7 @@ case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand,
 
     if (partitions.isEmpty) {
       if (partitionValueSpec.isDefined) {
-        throw new NoSuchPartitionException(originDB, originTableIdentifier.table, partitionValueSpec.get)
+        throw new NoSuchPartitionException(delegate.tableIdent.database.get, delegate.tableIdent.table, partitionValueSpec.get)
       } else {
         // the user requested to analyze all partitions for a table which has no partitions
         // return normally, since there is nothing to do
@@ -99,15 +82,14 @@ case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand,
       if (delegate.noscan) {
         Map.empty
       } else {
-        calculateRowCountsPerPartition(sparkSession, tableIdentifierWithSchema, tableMeta, partitionValueSpec
-        )
+        calculateRowCountsPerPartition(sparkSession, delegate.tableIdent, tableMeta, partitionValueSpec)
       }
 
     // Update the metastore if newly computed statistics are different from those
     // recorded in the metastore.
     val newPartitions = partitions.flatMap { p =>
       val newTotalSize = KatanaCommandUtils.calculateLocationSize(
-        sessionState, tableIdentifierWithSchema, p.storage.locationUri)
+        sessionState, delegate.tableIdent, p.storage.locationUri)
       val newRowCount = rowCounts.get(p.spec)
       val newStats = KatanaCommandUtils.compareAndGetNewStats(tableMeta.stats, newTotalSize, newRowCount)
       newStats.map(_ => p.copy(stats = newStats))

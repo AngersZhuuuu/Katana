@@ -23,28 +23,22 @@ case class KatanaAlterViewAs(delegate: AlterViewAsCommand,
   override protected def innerChildren: Seq[QueryPlan[_]] = Seq(delegate.query)
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.name.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.name.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val originOldTableIdentifier = new TableIdentifier(delegate.name.table, Some(originDB))
     // If the plan cannot be analyzed, throw an exception and don't proceed.
     val qe = sparkSession.sessionState.executePlan(delegate.query)
     qe.assertAnalyzed()
     val analyzedPlan = qe.analyzed
 
-    if (catalog.alterTempViewDefinition(originOldTableIdentifier, analyzedPlan)) {
+    if (catalog.alterTempViewDefinition(delegate.name, analyzedPlan)) {
       // a local/global temp view has been altered, we are done.
     } else {
-      alterPermanentView(catalog, originOldTableIdentifier, sparkSession, analyzedPlan)
+      alterPermanentView(catalog, delegate.name, sparkSession, analyzedPlan)
     }
 
     Seq.empty[Row]

@@ -20,47 +20,28 @@ case class KatanaAnalyzeTable(delegate: AnalyzeTableCommand,
                               @transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableIdent.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableIdent.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
-
-
-    /**
-      * 原生Identifier用于本Identifier所属的Catalog 进行查询
-      */
-    val originTableIdentifier = new TableIdentifier(delegate.tableIdent.table, Some(originDB))
-
-    /**
-      * 带有Schema的DB 用于在SparkSession 生成 UnresolvedRelation 进行路由
-      */
-    val hiveSchema = hiveCatalogs.find(_._2 == catalog)
-    val withSchemaDB = if (hiveSchema.isDefined) hiveSchema.get._1 + "_" + originDB else originDB
-    val tableIdentifierWithSchema = new TableIdentifier(delegate.tableIdent.table, Some(withSchemaDB))
-
-    val tableMeta = catalog.getTableMetadata(originTableIdentifier)
+    val tableMeta = catalog.getTableMetadata(delegate.tableIdent)
     if (tableMeta.tableType == CatalogTableType.VIEW) {
       throw new AnalysisException("ANALYZE TABLE is not supported on views.")
     }
 
     // Compute stats for the whole table
-    val newTotalSize = KatanaCommandUtils.calculateTotalSize(catalog, tableIdentifierWithSchema, sessionState, sparkSession, tableMeta)
+    val newTotalSize = KatanaCommandUtils.calculateTotalSize(catalog, delegate.tableIdent, sessionState, sparkSession, tableMeta)
     val newRowCount =
-      if (delegate.noscan) None else Some(BigInt(sparkSession.table(tableIdentifierWithSchema).count()))
+      if (delegate.noscan) None else Some(BigInt(sparkSession.table(delegate.tableIdent).count()))
 
     // Update the metastore if the above statistics of the table are different from those
     // recorded in the metastore.
     val newStats = KatanaCommandUtils.compareAndGetNewStats(tableMeta.stats, newTotalSize, newRowCount)
     if (newStats.isDefined) {
-      catalog.alterTableStats(originTableIdentifier, newStats)
+      catalog.alterTableStats(delegate.tableIdent, newStats)
     }
 
     Seq.empty[Row]

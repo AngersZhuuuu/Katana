@@ -25,20 +25,14 @@ case class KatanaAlterTableAddColumns(delegate: AlterTableAddColumnsCommand,
                                      (@transient private val sessionState: SessionState,
                                       @transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.table.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.table.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val originTableIdentifier = new TableIdentifier(delegate.table.table, Some(originDB))
-    val catalogTable = verifyAlterTableAddColumn(sessionState.conf, catalog, originTableIdentifier)
+    val catalogTable = verifyAlterTableAddColumn(sessionState.conf, catalog, delegate.table)
 
     try {
       sparkSession.catalog.uncacheTable(delegate.table.quotedString)
@@ -46,15 +40,15 @@ case class KatanaAlterTableAddColumns(delegate: AlterTableAddColumnsCommand,
       case NonFatal(e) =>
         log.warn(s"Exception when attempting to uncache table ${delegate.table.quotedString}", e)
     }
-    catalog.refreshTable(originTableIdentifier)
+    catalog.refreshTable(delegate.table)
 
     SchemaUtils.checkColumnNameDuplication(
       (delegate.colsToAdd ++ catalogTable.schema).map(_.name),
-      "in the table definition of " + originTableIdentifier.identifier,
+      "in the table definition of " + delegate.table.identifier,
       conf.caseSensitiveAnalysis)
     DDLUtils.checkDataColNames(catalogTable, delegate.colsToAdd.map(_.name))
 
-    catalog.alterTableDataSchema(originTableIdentifier, StructType(catalogTable.dataSchema ++ delegate.colsToAdd))
+    catalog.alterTableDataSchema(delegate.table, StructType(catalogTable.dataSchema ++ delegate.colsToAdd))
     Seq.empty[Row]
   }
 

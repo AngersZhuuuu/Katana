@@ -61,37 +61,31 @@ case class KatanaCreateView(delegate: CreateViewCommand,
         s"(num: `${analyzedPlan.output.length}`) does not match the number of column names " +
         s"specified by CREATE VIEW (num: `${delegate.userSpecifiedColumns.length}`).")
     }
-    val (catalog: SessionCatalog, originDB: String) = delegate.name.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.name.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val originTableIdentifier = new TableIdentifier(delegate.name.table, Some(originDB))
     // When creating a permanent view, not allowed to reference temporary objects.
     // This should be called after `qe.assertAnalyzed()` (i.e., `child` can be resolved)
-    verifyTemporaryObjectsNotExists(originTableIdentifier, sparkSession)
+    verifyTemporaryObjectsNotExists(delegate.name, sparkSession)
 
 
     if (delegate.viewType == LocalTempView) {
       val aliasedPlan = aliasPlan(sparkSession, analyzedPlan)
-      catalog.createTempView(originTableIdentifier.table, aliasedPlan, overrideIfExists = delegate.replace)
+      catalog.createTempView(delegate.name.table, aliasedPlan, overrideIfExists = delegate.replace)
     } else if (delegate.viewType == GlobalTempView) {
       val aliasedPlan = aliasPlan(sparkSession, analyzedPlan)
-      catalog.createGlobalTempView(originTableIdentifier.table, aliasedPlan, overrideIfExists = delegate.replace)
-    } else if (catalog.tableExists(originTableIdentifier)) {
-      val tableMetadata = catalog.getTableMetadata(originTableIdentifier)
+      catalog.createGlobalTempView(delegate.name.table, aliasedPlan, overrideIfExists = delegate.replace)
+    } else if (catalog.tableExists(delegate.name)) {
+      val tableMetadata = catalog.getTableMetadata(delegate.name)
       if (delegate.allowExisting) {
         // Handles `CREATE VIEW IF NOT EXISTS v0 AS SELECT ...`. Does nothing when the target view
         // already exists.
       } else if (tableMetadata.tableType != CatalogTableType.VIEW) {
-        throw new AnalysisException(s"${originTableIdentifier} is not a view")
+        throw new AnalysisException(s"${delegate.name} is not a view")
       } else if (delegate.replace) {
         // Detect cyclic view reference on CREATE OR REPLACE VIEW.
         val viewIdent = tableMetadata.identifier
@@ -100,17 +94,17 @@ case class KatanaCreateView(delegate: CreateViewCommand,
         // Handles `CREATE OR REPLACE VIEW v0 AS SELECT ...`
         // Nothing we need to retain from the old view, so just drop and create a new one
         catalog.dropTable(viewIdent, ignoreIfNotExists = false, purge = false)
-        catalog.createTable(prepareTable(originTableIdentifier, sparkSession, analyzedPlan), ignoreIfExists = false)
+        catalog.createTable(prepareTable(delegate.name, sparkSession, analyzedPlan), ignoreIfExists = false)
       } else {
         // Handles `CREATE VIEW v0 AS SELECT ...`. Throws exception when the target view already
         // exists.
         throw new AnalysisException(
-          s"View ${originTableIdentifier} already exists. If you want to update the view definition, " +
+          s"View ${delegate.name} already exists. If you want to update the view definition, " +
             "please use ALTER VIEW AS or CREATE OR REPLACE VIEW AS")
       }
     } else {
       // Create the view if it doesn't exist.
-      catalog.createTable(prepareTable(originTableIdentifier, sparkSession, analyzedPlan), ignoreIfExists = false)
+      catalog.createTable(prepareTable(delegate.name, sparkSession, analyzedPlan), ignoreIfExists = false)
     }
     Seq.empty[Row]
   }

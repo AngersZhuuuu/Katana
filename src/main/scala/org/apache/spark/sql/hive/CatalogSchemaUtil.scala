@@ -16,76 +16,40 @@ object CatalogSchemaUtil {
     withSchema.replaceFirst(s"${schema}_", "")
   }
 
-  def getCatalog(hiveCatalogs: mutable.HashMap[String, SessionCatalog],
-                 hiveTableRelation: HiveTableRelation)(sparkSession: SparkSession): SessionCatalog = {
-    hiveCatalogs.values.find(catalog => {
-      catalog.tableExists(hiveTableRelation.tableMeta.identifier)
-    }).getOrElse(sparkSession.sessionState.catalog)
-  }
-
-  def getCatalog(hiveCatalogs: mutable.HashMap[String, SessionCatalog],
-                 tableMeta: CatalogTable)(sparkSession: SparkSession): SessionCatalog = {
-    hiveCatalogs.values.find(catalog => {
-      catalog.tableExists(tableMeta.identifier)
-    }).getOrElse(sparkSession.sessionState.catalog)
-  }
-
-  def getSessionStateByTableIdentifier(sessionStates: mutable.HashMap[String, SessionState],
-                                       tableIdentifier: TableIdentifier)
-                                      (sparkSession: SparkSession, katanaContext: KatanaContext): SessionState = {
-
-    if (tableIdentifier.database.isEmpty) {
-      if (katanaContext.getActiveSessionState() == null)
-        sparkSession.sessionState
-      else
-        katanaContext.getActiveSessionState()
-    } else {
-      getSessionStateByDBName(sessionStates, tableIdentifier.database.get)(sparkSession)
+  def getCatalog(catalog: Option[String],
+                 hiveCatalogs: mutable.HashMap[String, SessionCatalog],
+                 sparkSession: SparkSession,
+                 katana: KatanaContext): SessionCatalog = {
+    catalog match {
+      case None =>
+        katana.getActiveSessionState().getOrElse(sparkSession.sessionState).catalog
+      case Some(str) =>
+        if (hiveCatalogs.contains(str)) {
+          hiveCatalogs(str)
+        } else {
+          throw new RuntimeException(s"Can't find corresponding hive catalog [${str}]")
+        }
     }
   }
 
-  def getSessionStateByOriginTableIdentifier(sessionStates: mutable.HashMap[String, SessionState],
-                                             tableIdentifier: TableIdentifier)
-                                            (sparkSession: SparkSession): SessionState = {
-    sessionStates.values.find(sessionState => {
-      sessionState.catalog.tableExists(tableIdentifier)
-    }).getOrElse(sparkSession.sessionState)
-  }
-
-  def getSessionStateByDBName(sessionStates: mutable.HashMap[String, SessionState],
-                              dbName: String)
-                             (sparkSession: SparkSession): SessionState = {
-    val token = dbName.split(".")
-    if (token.length == 1) {
-      sparkSession.sessionState
-    } else if (token.length == 2) {
-      val catalogName = token(0)
-      if (sessionStates.contains(catalogName)) {
-        sessionStates(catalogName)
-      } else {
-        throw new RuntimeException(s"Can't find corresponding hive catalog [${catalogName}]")
-      }
-    } else {
-      throw new RuntimeException(s"Can't parse user passed database name : ${dbName}")
+  def getSessionState(catalog: Option[String],
+                      sessionStates: mutable.HashMap[String, SessionState],
+                      sparkSession: SparkSession,
+                      katana: KatanaContext): SessionState = {
+    catalog match {
+      case None =>
+          katana.getActiveSessionState.getOrElse(sparkSession.sessionState)
+      case Some(str) =>
+        if (sessionStates.contains(str)) {
+          sessionStates(str)
+        } else {
+          throw new RuntimeException(s"Can't find corresponding hive catalog [${str}]")
+        }
     }
   }
 
-  def getCatalogAndOriginDBName(hiveCatalogs: mutable.HashMap[String, SessionCatalog],
-                                dbName: String)(sparkSession: SparkSession): (SessionCatalog, String) = {
-    val token = dbName.split(".")
-    if (token.length == 1) {
-      (sparkSession.sessionState.catalog, dbName)
-    } else if (token.length == 2) {
-      val catalogName = token(0)
-      val originDb = token(1)
-      if (hiveCatalogs.contains(catalogName)) {
-        (hiveCatalogs(catalogName), originDb)
-      } else {
-        throw new RuntimeException(s"Can't find corresponding hive catalog [${catalogName}]")
-      }
-    } else {
-      throw new RuntimeException(s"Can't parse user passed database name : ${dbName}")
-    }
+  def getCatalogName(catalog: SessionCatalog,
+                     hiveCatalogs: mutable.HashMap[String, SessionCatalog]): Option[String] = {
+    hiveCatalogs.find(_._2 == catalog).map(_._1)
   }
-
 }

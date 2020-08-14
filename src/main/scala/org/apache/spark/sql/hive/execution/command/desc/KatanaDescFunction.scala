@@ -35,17 +35,13 @@ case class KatanaDescFunction(delegate: DescribeFunctionCommand,
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     // Hard code "<>", "!=", "between", and "case" for now as there is no corresponding functions.
-    val (catalog: SessionCatalog, originDB: String) = delegate.functionName.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.functionName.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
+
 
     delegate.functionName.funcName.toLowerCase(Locale.ROOT) match {
       case "<>" =>
@@ -68,7 +64,7 @@ case class KatanaDescFunction(delegate: DescribeFunctionCommand,
             "when `expr1` = `expr4`, return `expr5`; else return `expr6`.") :: Nil
       case _ =>
         try {
-          val info = catalog.lookupFunctionInfo(new FunctionIdentifier(funcName = delegate.functionName.funcName, database = Some(originDB)))
+          val info = catalog.lookupFunctionInfo(delegate.functionName)
           val name = if (info.getDb != null) info.getDb + "." + info.getName else info.getName
           val result =
             Row(s"Function: $name") ::

@@ -30,28 +30,21 @@ case class KatanaDescTable(delegate: DescribeTableCommand,
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val result = new ArrayBuffer[Row]
-    val (catalog: SessionCatalog, originDB: String) = delegate.table.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.table.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val originTableIdentifier = new TableIdentifier(table = delegate.table.table, database = Some(originDB))
-
-    if (catalog.isTemporaryTable(originTableIdentifier)) {
+    if (catalog.isTemporaryTable(delegate.table)) {
       if (delegate.partitionSpec.nonEmpty) {
         throw new AnalysisException(
-          s"DESC PARTITION is not allowed on a temporary view: ${originTableIdentifier.identifier}")
+          s"DESC PARTITION is not allowed on a temporary view: ${delegate.table.identifier}")
       }
-      describeSchema(catalog.lookupRelation(originTableIdentifier).schema, result, header = false)
+      describeSchema(catalog.lookupRelation(delegate.table).schema, result, header = false)
     } else {
-      val metadata = catalog.getTableMetadata(originTableIdentifier)
+      val metadata = catalog.getTableMetadata(delegate.table)
       if (metadata.schema.isEmpty) {
         // In older version(prior to 2.1) of Spark, the table schema can be empty and should be
         // inferred at runtime. We should still support it.
@@ -65,7 +58,7 @@ case class KatanaDescTable(delegate: DescribeTableCommand,
       if (delegate.partitionSpec.nonEmpty) {
         // Outputs the partition-specific info for the DDL command:
         // "DESCRIBE [EXTENDED|FORMATTED] table_name PARTITION (partitionVal*)"
-        describeDetailedPartitionInfo(originTableIdentifier, sparkSession, catalog, metadata, result)
+        describeDetailedPartitionInfo(delegate.table, sparkSession, catalog, metadata, result)
       } else if (delegate.isExtended) {
         describeFormattedTableInfo(metadata, result)
       }

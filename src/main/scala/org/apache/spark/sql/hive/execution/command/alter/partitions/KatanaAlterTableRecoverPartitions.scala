@@ -51,20 +51,14 @@ case class KatanaAlterTableRecoverPartitions(delegate: AlterTableRecoverPartitio
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableName.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableName.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val originTableIdentifier = new TableIdentifier(delegate.tableName.table, Some(originDB))
-    val table = catalog.getTableMetadata(originTableIdentifier)
+    val table = catalog.getTableMetadata(delegate.tableName)
     val tableIdentWithDB = table.identifier.quotedString
     DDLUtils.verifyAlterTableType(catalog, table, isView = false)
     if (table.partitionColumnNames.isEmpty) {
@@ -103,12 +97,12 @@ case class KatanaAlterTableRecoverPartitions(delegate: AlterTableRecoverPartitio
     }
     logInfo(s"Finished to gather the fast stats for all $total partitions.")
 
-    addPartitions(catalog, originTableIdentifier, table, partitionSpecsAndLocs, partitionStats)
+    addPartitions(catalog, delegate.tableName, table, partitionSpecsAndLocs, partitionStats)
     // Updates the table to indicate that its partition metadata is stored in the Hive metastore.
     // This is always the case for Hive format tables, but is not true for Datasource tables created
     // before Spark 2.1 unless they are converted via `msck repair table`.
     catalog.alterTable(table.copy(tracksPartitionsInCatalog = true))
-    catalog.refreshTable(originTableIdentifier)
+    catalog.refreshTable(delegate.tableName)
     logInfo(s"Recovered all partitions ($total).")
     Seq.empty[Row]
   }

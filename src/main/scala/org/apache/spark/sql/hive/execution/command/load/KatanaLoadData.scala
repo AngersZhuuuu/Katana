@@ -23,34 +23,14 @@ case class KatanaLoadData(delegate: LoadDataCommand,
                           @transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.table.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
-
-
-    /**
-      * 原生Identifier用于本Identifier所属的Catalog 进行查询
-      */
-    val originTableIdentifier = new TableIdentifier(delegate.table.table, Some(originDB))
-
-    /**
-      * 带有Schema的DB 用于在SparkSession 生成 UnresolvedRelation 进行路由
-      */
-    val hiveSchema = hiveCatalogs.find(_._2 == catalog)
-    val withSchemaDB = if (hiveSchema.isDefined) hiveSchema.get._1 + "_" + originDB else originDB
-    val tableIdentifierWithSchema = new TableIdentifier(delegate.table.table, Some(withSchemaDB))
-
-
-    val targetTable = catalog.getTableMetadata(originTableIdentifier)
-    val tableIdentifierWithDB = tableIdentifierWithSchema.quotedString
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.table.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
+    val targetTable = catalog.getTableMetadata(delegate.table)
+    val tableIdentifierWithDB = targetTable.identifier.quotedString
 
     if (targetTable.tableType == CatalogTableType.VIEW) {
       throw new AnalysisException(s"Target table in LOAD DATA cannot be a view: $tableIdentifierWithDB")

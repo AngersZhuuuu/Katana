@@ -23,72 +23,51 @@ import org.apache.spark.sql.{SparkSession, Strategy}
 import scala.collection.mutable.HashMap
 
 /**
-  * @author angers.zhu@gmail.com
-  * @date 2019/5/29 9:32
-  */
+ * @author angers.zhu@gmail.com
+ * @date 2019/5/29 9:32
+ */
 case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => KatanaContext)
                                (sparkSession: SparkSession) extends Strategy {
 
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
   private val hiveCatalogs: HashMap[String, SessionCatalog] = katanaContext.hiveCatalogs
-  private val katanaSessionState: HashMap[String, SessionState] = katanaContext.katanaSessionState
+  private val katanaSessionStates: HashMap[String, SessionState] = katanaContext.katanaSessionState
 
   override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
     /**
-      * 因为在Analyzer后面还有Optimizer，所以在Analyzer后面做替换会造成Optimizer错误
-      *
-      */
+     * 因为在Analyzer后面还有Optimizer，所以在Analyzer后面做替换会造成Optimizer错误
+     *
+     */
 
     //      在 Analyze 中已经处理过InsertInto 的Relation， 故此处不需要处理
     case _@InsertIntoHiveTable(tableMeta, partition, query, overwrite, ifPartitionNotExists, outputColumnNames) => {
-      val catalog = CatalogSchemaUtil.getCatalog(hiveCatalogs, tableMeta)(sparkSession)
-      val sessionState = CatalogSchemaUtil.getSessionStateByOriginTableIdentifier(katanaSessionState, tableMeta.identifier)(sparkSession)
+      val catalog = CatalogSchemaUtil.getCatalog(tableMeta.identifier.catalog, hiveCatalogs, sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(tableMeta.identifier.catalog, katanaSessionStates, sparkSession, katanaContext)
       val katanaPlan = KatanaInsertIntoHiveTable(tableMeta, partition, query, overwrite,
         ifPartitionNotExists, outputColumnNames)(catalog, sessionState)
       DataWritingCommandExec(katanaPlan, planLater(katanaPlan.query)) :: Nil
     }
 
     /**
-      * Create DDL
-      */
+     * Create DDL
+     */
     case ctas@CreateHiveTableAsSelectCommand(tableDesc, query, outputColumnNames, mode) =>
-      val (catalog: SessionCatalog, originDB: String) = tableDesc.identifier.database match {
-        case None => {
-          val tempCatalog =
-            if (katanaContext.getActiveSessionState() == null)
-              sparkSession.sessionState.catalog
-            else
-              katanaContext.getActiveSessionState().catalog
-          (tempCatalog, tempCatalog.getCurrentDatabase)
-        }
-        case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-      }
+      val catalog =
+        CatalogSchemaUtil.getCatalog(
+          tableDesc.identifier.catalog,
+          hiveCatalogs,
+          sparkSession,
+          katanaContext)
 
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, tableDesc.identifier)(sparkSession, katanaContext)
+      val sessionState =
+        CatalogSchemaUtil.getSessionState(
+          tableDesc.identifier.catalog,
+          katanaSessionStates,
+          sparkSession,
+          katanaContext)
 
-      val originTableIdentifier = new TableIdentifier(table = tableDesc.identifier.table, database = Some(originDB))
-      val originTableDesc = new CatalogTable(originTableIdentifier,
-        tableDesc.tableType,
-        tableDesc.storage,
-        tableDesc.schema,
-        tableDesc.provider,
-        tableDesc.partitionColumnNames,
-        tableDesc.bucketSpec,
-        tableDesc.owner,
-        tableDesc.createTime,
-        tableDesc.lastAccessTime,
-        tableDesc.createVersion,
-        tableDesc.properties,
-        tableDesc.stats,
-        tableDesc.viewText,
-        tableDesc.comment,
-        tableDesc.unsupportedFeatures,
-        tableDesc.tracksPartitionsInCatalog,
-        tableDesc.schemaPreservesCase,
-        tableDesc.ignoredProperties)
-      val katanaPlan = KatanaCreateHiveTableAsSelectCommand(originTableDesc, query, outputColumnNames, mode)(catalog, sessionState)
+      val katanaPlan = KatanaCreateHiveTableAsSelectCommand(tableDesc, query, outputColumnNames, mode)(catalog, sessionState)
       DataWritingCommandExec(katanaPlan, planLater(katanaPlan.query)) :: Nil
-
 
     case createTable: CreateTableCommand => ExecutedCommandExec(KatanaCreateTable(createTable, hiveCatalogs)(katanaContext)) :: Nil
     case createTableLike: CreateTableLikeCommand => ExecutedCommandExec(KatanaCreateTableLike(createTableLike, hiveCatalogs)(katanaContext)) :: Nil
@@ -96,40 +75,40 @@ case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => Katana
 
 
     /**
-      * LOAD DATA [LOCAL] INPATH
-      */
+     * LOAD DATA [LOCAL] INPATH
+     */
     case loadData: LoadDataCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, loadData.table)(sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(loadData.table.catalog, katanaSessionStates, sparkSession, katanaContext)
       ExecutedCommandExec(KatanaLoadData(loadData, hiveCatalogs)(sessionState, katanaContext)) :: Nil
 
 
     /**
-      * Analyze Command
-      */
+     * Analyze Command
+     */
     case analyzeTable: AnalyzeTableCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, analyzeTable.tableIdent)(sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(analyzeTable.tableIdent.catalog, katanaSessionStates, sparkSession, katanaContext)
       ExecutedCommandExec(KatanaAnalyzeTable(analyzeTable, hiveCatalogs)(sessionState, katanaContext)) :: Nil
     case analyzePartition: AnalyzePartitionCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, analyzePartition.tableIdent)(sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(analyzePartition.tableIdent.catalog, katanaSessionStates, sparkSession, katanaContext)
       ExecutedCommandExec(KatanaAnalyzePartition(analyzePartition, hiveCatalogs)(sessionState, katanaContext)) :: Nil
     case analyzeColumn: AnalyzeColumnCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, analyzeColumn.tableIdent)(sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(analyzeColumn.tableIdent.catalog, katanaSessionStates, sparkSession, katanaContext)
       ExecutedCommandExec(KatanaAnalyzeColumn(analyzeColumn, hiveCatalogs)(sessionState, katanaContext)) :: Nil
 
 
     /**
-      * Support for TRUNCATE command
-      */
+     * Support for TRUNCATE command
+     */
     case truncateTable: TruncateTableCommand =>
       ExecutedCommandExec(KatanaTruncateTable(truncateTable, hiveCatalogs)(katanaContext)) :: Nil
 
 
     /**
-      * Support for ALTER command
-      */
+     * Support for ALTER command
+     */
     //    DB
     case alterDatabaseProperties: AlterDatabasePropertiesCommand =>
-      ExecutedCommandExec(KatanaAlterDatabaseProperties(alterDatabaseProperties, hiveCatalogs)) :: Nil
+      ExecutedCommandExec(KatanaAlterDatabaseProperties(alterDatabaseProperties, hiveCatalogs)(katanaContext)) :: Nil
 
     //TABLE
     case alterTableRename: AlterTableRenameCommand =>
@@ -137,7 +116,7 @@ case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => Katana
     case alterTableSerDeProperties: AlterTableSerDePropertiesCommand =>
       ExecutedCommandExec(KatanaAlterTableSerDeProperties(alterTableSerDeProperties, hiveCatalogs)(katanaContext)) :: Nil
     case alterTableSetLocation: AlterTableSetLocationCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, alterTableSetLocation.tableName)(sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(alterTableSetLocation.tableName.catalog, katanaSessionStates, sparkSession, katanaContext)
       ExecutedCommandExec(KatanaAlterTableSetLocation(alterTableSetLocation, hiveCatalogs)(sessionState, katanaContext)) :: Nil
     case alterTableSetProperties: AlterTableSetPropertiesCommand =>
       ExecutedCommandExec(KatanaAlterTableSetProperties(alterTableSetProperties, hiveCatalogs)(katanaContext)) :: Nil
@@ -146,20 +125,20 @@ case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => Katana
 
     //      PARTITION
     case alterTableAddPartition: AlterTableAddPartitionCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, alterTableAddPartition.tableName)(sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(alterTableAddPartition.tableName.catalog, katanaSessionStates, sparkSession, katanaContext)
       ExecutedCommandExec(KatanaAlterTableAddPartition(alterTableAddPartition, hiveCatalogs)(sessionState, katanaContext)) :: Nil
     case alterTableDropPartition: AlterTableDropPartitionCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, alterTableDropPartition.tableName)(sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(alterTableDropPartition.tableName.catalog, katanaSessionStates, sparkSession, katanaContext)
       ExecutedCommandExec(KatanaAlterTableDropPartition(alterTableDropPartition, hiveCatalogs)(sessionState, katanaContext)) :: Nil
     case alterTableRecoverPartitions: AlterTableRecoverPartitionsCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, alterTableRecoverPartitions.tableName)(sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(alterTableRecoverPartitions.tableName.catalog, katanaSessionStates, sparkSession, katanaContext)
       ExecutedCommandExec(KatanaAlterTableRecoverPartitions(alterTableRecoverPartitions, hiveCatalogs)(sessionState, katanaContext)) :: Nil
     case alterTableRenamePartition: AlterTableRenamePartitionCommand =>
       ExecutedCommandExec(KatanaAlterTableRenamePartition(alterTableRenamePartition, hiveCatalogs)(katanaContext)) :: Nil
 
     //      COLUMNS
     case alterTableAddColumns: AlterTableAddColumnsCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionStateByTableIdentifier(katanaSessionState, alterTableAddColumns.table)(sparkSession, katanaContext)
+      val sessionState = CatalogSchemaUtil.getSessionState(alterTableAddColumns.table.catalog, katanaSessionStates, sparkSession, katanaContext)
       ExecutedCommandExec(KatanaAlterTableAddColumns(alterTableAddColumns, hiveCatalogs)(sessionState, katanaContext)) :: Nil
     case alterTableChangeColumn: AlterTableChangeColumnCommand =>
       ExecutedCommandExec(KatanaAlterTableChangeColumn(alterTableChangeColumn, hiveCatalogs)(katanaContext)) :: Nil
@@ -170,8 +149,8 @@ case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => Katana
 
 
     /**
-      * CACHE
-      */
+     * CACHE
+     */
     case cacheTable: CacheTableCommand =>
       ExecutedCommandExec(KatanaCacheTable(cacheTable, hiveCatalogs)) :: Nil
     case unCacheTable: UncacheTableCommand =>

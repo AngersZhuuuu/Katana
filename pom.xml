@@ -4,14 +4,14 @@
     <groupId>org.apache.spark.sql</groupId>
     <artifactId>Katana</artifactId>
     <version>1.0</version>
-    <inceptionYear>2008</inceptionYear>
+    <inceptionYear>2020</inceptionYear>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <scala.version>2.11.8</scala.version>
         <scala.binary.version>2.11</scala.binary.version>
         <scalatest.version>2.2.6</scalatest.version>
-        <spark.group>org.apache.spark</spark.group>
-        <spark.version>2.4.0</spark.version>
+        <spark.group>com.netease.nie.gdc.spark</spark.group>
+        <spark.version>2.4.0_GDC_V1.5</spark.version>
         <spark.scope>provided</spark.scope>
         <hive.group>org.spark-project.hive</hive.group>
         <hive.version>1.2.1.spark2</hive.version>
@@ -23,6 +23,11 @@
             <id>scala-tools.org</id>
             <name>Scala-Tools Maven2 Repository</name>
             <url>http://scala-tools.org/repo-releases</url>
+        </repository>
+        <repository>
+            <id>gdc-nexus</id>
+            <name>gdc-nexus</name>
+            <url>http://maven-in.gdc.nie.netease.com:8074/nexus/content/repositories/releases</url>
         </repository>
     </repositories>
 

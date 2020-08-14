@@ -17,21 +17,14 @@ case class KatanaAlterTableSetProperties(delegate: AlterTableSetPropertiesComman
                                         (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableName.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableName.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val originOldTableIdentifier = new TableIdentifier(delegate.tableName.table, Some(originDB))
-
-    val table = catalog.getTableMetadata(originOldTableIdentifier)
+    val table = catalog.getTableMetadata(delegate.tableName)
     DDLUtils.verifyAlterTableType(catalog, table, delegate.isView)
     // This overrides old properties and update the comment parameter of CatalogTable
     // with the newly added/modified comment since CatalogTable also holds comment as its

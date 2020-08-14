@@ -21,22 +21,14 @@ case class KatanaAlterTableSerDeProperties(delegate: AlterTableSerDePropertiesCo
     "ALTER TABLE attempted to set neither serde class name nor serde properties")
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.tableName.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val (catalog: SessionCatalog, originDB: String) = delegate.tableName.database match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
-
-    val originOldTableIdentifier = new TableIdentifier(delegate.tableName.table, Some(originDB))
-
-    val table = catalog.getTableMetadata(originOldTableIdentifier)
+    val table = catalog.getTableMetadata(delegate.tableName)
     DDLUtils.verifyAlterTableType(catalog, table, isView = false)
     // For datasource tables, disallow setting serde or specifying partition
     if (delegate.partSpec.isDefined && DDLUtils.isDatasourceTable(table)) {

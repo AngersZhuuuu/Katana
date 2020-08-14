@@ -34,19 +34,14 @@ case class KatanaCreateFunction(delegate: CreateFunctionCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (catalog: SessionCatalog, originDB: String) = delegate.databaseName match {
-      case None => {
-        val tempCatalog =
-          if (katana.getActiveSessionState() == null)
-            sparkSession.sessionState.catalog
-          else
-            katana.getActiveSessionState().catalog
-        (tempCatalog, tempCatalog.getCurrentDatabase)
-      }
-      case Some(db) => CatalogSchemaUtil.getCatalogAndOriginDBName(hiveCatalogs, db)(sparkSession)
-    }
+    val catalog =
+      CatalogSchemaUtil.getCatalog(
+        delegate.catalog,
+        hiveCatalogs,
+        sparkSession,
+        katana)
 
-    val func = CatalogFunction(FunctionIdentifier(delegate.functionName, Some(originDB)), delegate.className, delegate.resources)
+    val func = CatalogFunction(FunctionIdentifier(delegate.functionName, delegate.databaseName), delegate.className, delegate.resources)
     if (delegate.isTemp) {
       // We first load resources and then put the builder in the function registry.
       catalog.loadFunctionResources(delegate.resources)
