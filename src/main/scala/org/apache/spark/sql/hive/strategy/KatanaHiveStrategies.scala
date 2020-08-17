@@ -1,15 +1,13 @@
 package org.apache.spark.sql.hive.strategy
 
-import org.apache.spark.sql.catalyst.catalog.{HiveTableRelation, SessionCatalog}
+import org.apache.spark.sql.{catalyst, SparkSession, Strategy}
+import org.apache.spark.sql.catalyst.catalog.HiveTableRelation
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, Expression, NamedExpression}
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.{FilterExec, ProjectExec, SparkPlan}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.hive.execution.KatanaHiveTableScanExec
-import org.apache.spark.sql.{SparkSession, Strategy, catalyst}
-
-import scala.collection.mutable.HashMap
 
 /**
   * @author angers.zhu@gmail.com
@@ -19,7 +17,6 @@ case class KatanaHiveStrategies(getOrCreateKatanaContext: SparkSession => Katana
                                (sparkSession: SparkSession) extends Strategy {
 
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
-  private val hiveCatalogs: HashMap[String, SessionCatalog] = katanaContext.hiveCatalogs
 
   def pruneFilterProject(projectList: Seq[NamedExpression],
                          filterPredicates: Seq[Expression],
@@ -62,7 +59,8 @@ case class KatanaHiveStrategies(getOrCreateKatanaContext: SparkSession => Katana
       val catalog =
         CatalogSchemaUtil.getCatalog(
           relation.tableMeta.identifier.catalog,
-          hiveCatalogs, sparkSession, katanaContext)
+          sparkSession,
+          katanaContext)
       pruneFilterProject(
         projectList,
         otherPredicates,

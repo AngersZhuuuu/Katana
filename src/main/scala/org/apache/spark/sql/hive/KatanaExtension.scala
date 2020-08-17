@@ -1,5 +1,6 @@
 package org.apache.spark.sql.hive
 
+import org.apache.spark.sql.{SparkSession, SparkSessionExtensions, Strategy}
 import org.apache.spark.sql.catalyst.parser.ParserInterface
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
@@ -7,8 +8,6 @@ import org.apache.spark.sql.hive.KatanaStatus._
 import org.apache.spark.sql.hive.analyze.{KatanaHiveDDLRule, KatanaHiveRelationRule}
 import org.apache.spark.sql.hive.parser.KatanaIdentifierParser
 import org.apache.spark.sql.hive.strategy.{KatanaBasicOperators, KatanaHiveStrategies}
-import org.apache.spark.sql.{SparkSession, SparkSessionExtensions, Strategy}
-import org.apache.spark.sql.hive.KatanaContext.INTERNAL_HMS_NAME
 
 /**
   * @author angers.zhu@gmail.com

@@ -1,12 +1,9 @@
 package org.apache.spark.sql.hive.execution.command.alter.table
 
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.{Row, SparkSession}
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.execution.command.{AlterTableRenameCommand, DDLUtils, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
-import scala.collection.mutable.HashMap
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -14,8 +11,7 @@ import scala.util.control.NonFatal
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 16:57
   */
-case class KatanaAlterTableRename(delegate: AlterTableRenameCommand,
-                                  hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaAlterTableRename(delegate: AlterTableRenameCommand)
                                  (@transient private val katana: KatanaContext)extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
@@ -27,7 +23,6 @@ case class KatanaAlterTableRename(delegate: AlterTableRenameCommand,
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.oldName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

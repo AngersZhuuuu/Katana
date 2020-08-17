@@ -13,7 +13,6 @@ import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.hive.HiveShim.{ShimFileSinkDesc => FileSinkDesc}
 import org.apache.spark.sql.hive.client.HiveClientImpl
 import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
-import org.apache.spark.sql.internal.SessionState
 
 /**
  * @author angers.zhu@gmail.com
@@ -30,7 +29,7 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
                                      outputColumnNames: Seq[String])
                                     (@transient private val catalog: SessionCatalog,
                                      @transient private val catalogName: Option[String],
-                                     @transient private val sessionState: SessionState)
+                                     @transient private val session: SparkSession)
   extends KatanaSaveAsHiveFile {
 
   /**
@@ -40,7 +39,7 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
    */
   override def run(sparkSession: SparkSession, child: SparkPlan): Seq[Row] = {
     val externalCatalog = catalog.externalCatalog
-    val hadoopConf = sessionState.newHadoopConf()
+    val hadoopConf = session.sessionState.newHadoopConf()
 
     val hiveQlTable = HiveClientImpl.toHiveTable(table)
     // Have to pass the TableDesc object to RDD.mapPartitions and then instantiate new serializer
@@ -72,7 +71,7 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
       sparkSession.catalog.uncacheTable(table.identifier.quotedString)
     }
     catalog.refreshTable(table.identifier)
-    KatanaCommandUtils.updateTableStats(catalog, sessionState, sparkSession, table)
+    KatanaCommandUtils.updateTableStats(catalog, session, sparkSession, table)
 
     // It would be nice to just return the childRdd unchanged so insert operations could be chained,
     // however for now we return an empty list to simplify compatibility checks with hive, which

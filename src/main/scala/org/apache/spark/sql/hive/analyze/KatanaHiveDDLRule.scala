@@ -1,18 +1,14 @@
 package org.apache.spark.sql.hive.analyze
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.command._
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.hive.execution.command.create.{KatanaCreateDatabase, KatanaCreateFunction}
 import org.apache.spark.sql.hive.execution.command.desc.{KatanaDescColumns, KatanaDescDatabase, KatanaDescFunction, KatanaDescTable}
 import org.apache.spark.sql.hive.execution.command.drop.{KatanaAlterTableDropPartition, KatanaDropDatabase, KatanaDropFunction, KatanaDropTable}
 import org.apache.spark.sql.hive.execution.command.show._
-import org.apache.spark.sql.internal.SessionState
-
-import scala.collection.mutable.HashMap
 
 /**
  * @author angers.zhu@gmail.com
@@ -21,64 +17,62 @@ import scala.collection.mutable.HashMap
 case class KatanaHiveDDLRule(getOrCreateKatanaContext: SparkSession => KatanaContext)
                             (sparkSession: SparkSession) extends Rule[LogicalPlan] {
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
-  private val hiveCatalogs: HashMap[String, SessionCatalog] = katanaContext.hiveCatalogs
-  private val katanaSessionState: HashMap[String, SessionState] = katanaContext.katanaSessionState
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformUp {
     /**
      * Support for SHOW command
      */
     case showDatabase: ShowDatabasesCommand =>
-      KatanaShowDatabases(showDatabase, hiveCatalogs)(katanaContext)
+      KatanaShowDatabases(showDatabase)(katanaContext)
     case setDatabase: SetDatabaseCommand =>
-      val sessionState = CatalogSchemaUtil.getSessionState(setDatabase.catalog, katanaSessionState, sparkSession, katanaContext)
-      KatanaSetDatabase(setDatabase)(sessionState, katanaContext)
+      val session = CatalogSchemaUtil.getSession(setDatabase.catalog, sparkSession, katanaContext)
+      KatanaSetDatabase(setDatabase)(session, katanaContext)
     case showTables: ShowTablesCommand =>
-      KatanaShowTables(showTables, hiveCatalogs)(katanaContext)
+      KatanaShowTables(showTables)(katanaContext)
     case showColumns: ShowColumnsCommand =>
-      KatanaShowColumns(showColumns, hiveCatalogs)(katanaContext)
+      KatanaShowColumns(showColumns)(katanaContext)
     case showCreateTable: ShowCreateTableCommand =>
-      KatanaShowCreateTable(showCreateTable, hiveCatalogs)(katanaContext)
+      KatanaShowCreateTable(showCreateTable)(katanaContext)
     case showPartitions: ShowPartitionsCommand =>
-      KatanaShowPartitions(showPartitions, hiveCatalogs)(katanaContext)
+      KatanaShowPartitions(showPartitions)(katanaContext)
     case showTableProperties: ShowTablePropertiesCommand =>
-      KatanaShowTableProperties(showTableProperties, hiveCatalogs)(katanaContext)
+      KatanaShowTableProperties(showTableProperties)(katanaContext)
     case showFunctions: ShowFunctionsCommand =>
-      KatanaShowFunctions(showFunctions, hiveCatalogs)(katanaContext)
+      KatanaShowFunctions(showFunctions)(katanaContext)
 
 
     /**
      * Support for Create command
      */
     case createDatabase: CreateDatabaseCommand =>
-      KatanaCreateDatabase(createDatabase, hiveCatalogs)(katanaContext)
+      KatanaCreateDatabase(createDatabase)(katanaContext)
     case createFunction: CreateFunctionCommand =>
-      KatanaCreateFunction(createFunction, hiveCatalogs)(katanaContext)
+      KatanaCreateFunction(createFunction)(katanaContext)
 
 
     /**
      * Support for DESC command
      */
     case descDatabase: DescribeDatabaseCommand =>
-      KatanaDescDatabase(descDatabase, hiveCatalogs)(katanaContext)
+      KatanaDescDatabase(descDatabase)(katanaContext)
     case descTable: DescribeTableCommand =>
-      KatanaDescTable(descTable, hiveCatalogs)(katanaContext)
+      KatanaDescTable(descTable)(katanaContext)
     case descColumn: DescribeColumnCommand =>
-      KatanaDescColumns(descColumn, hiveCatalogs)(katanaContext)
+      KatanaDescColumns(descColumn)(katanaContext)
     case descFunction: DescribeFunctionCommand =>
-      KatanaDescFunction(descFunction, hiveCatalogs)(katanaContext)
+      KatanaDescFunction(descFunction)(katanaContext)
 
     /**
      * Support for DROP command
      */
     case dropDatabase: DropDatabaseCommand =>
-      KatanaDropDatabase(dropDatabase, hiveCatalogs)(katanaContext)
+      KatanaDropDatabase(dropDatabase)(katanaContext)
     case dropTable: DropTableCommand =>
-      KatanaDropTable(dropTable, hiveCatalogs)(katanaContext)
+      KatanaDropTable(dropTable)(katanaContext)
     case dropPartition: AlterTableDropPartitionCommand =>
-      KatanaAlterTableDropPartition(dropPartition, hiveCatalogs)(katanaContext)
+      KatanaAlterTableDropPartition(dropPartition)(katanaContext)
     case dropFunction: DropFunctionCommand =>
-      KatanaDropFunction(dropFunction, hiveCatalogs)(katanaContext)
+      KatanaDropFunction(dropFunction)(katanaContext)
   }
 
 }

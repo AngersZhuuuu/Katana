@@ -1,19 +1,14 @@
 package org.apache.spark.sql.hive.execution.command.alter.table
 
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
-import org.apache.spark.sql.execution.command.{AlterTableSerDePropertiesCommand, DDLUtils, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.execution.command.{AlterTableSerDePropertiesCommand, DDLUtils, RunnableCommand}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 17:05
   */
-case class KatanaAlterTableSerDeProperties(delegate: AlterTableSerDePropertiesCommand,
-                                           hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaAlterTableSerDeProperties(delegate: AlterTableSerDePropertiesCommand)
                                           (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   // should never happen if we parsed things correctly
@@ -24,7 +19,6 @@ case class KatanaAlterTableSerDeProperties(delegate: AlterTableSerDePropertiesCo
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

@@ -1,25 +1,19 @@
 package org.apache.spark.sql.hive.execution.command.alter.table
 
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.execution.command.{AlterTableUnsetPropertiesCommand, DDLUtils, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 17:20
   */
-case class KatanaAlterTableUnsetProperties(delegate: AlterTableUnsetPropertiesCommand,
-                                           hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaAlterTableUnsetProperties(delegate: AlterTableUnsetPropertiesCommand)
                                           (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

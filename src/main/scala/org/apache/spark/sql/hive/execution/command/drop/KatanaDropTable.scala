@@ -1,25 +1,22 @@
 package org.apache.spark.sql.hive.execution.command.drop
 
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
-import org.apache.spark.sql.catalyst.catalog.{CatalogTableType, SessionCatalog}
+import org.apache.spark.sql.catalyst.catalog.CatalogTableType
 import org.apache.spark.sql.execution.command.{DropTableCommand, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
-import scala.collection.mutable.HashMap
 import scala.util.control.NonFatal
 
 /**
  * @author angers.zhu@gmail.com
  * @date 2019/5/29 14:15
  */
-case class KatanaDropTable(delegate: DropTableCommand,
-                           hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaDropTable(delegate: DropTableCommand)
                           (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

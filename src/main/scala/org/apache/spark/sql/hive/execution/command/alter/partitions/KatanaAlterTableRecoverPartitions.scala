@@ -3,27 +3,24 @@ package org.apache.spark.sql.hive.execution.command.alter.partitions
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path, PathFilter}
 import org.apache.hadoop.mapred.{FileInputFormat, JobConf}
+import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.Resolver
-import org.apache.spark.sql.catalyst.catalog.CatalogTypes.TablePartitionSpec
 import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogTablePartition, ExternalCatalogUtils, SessionCatalog}
+import org.apache.spark.sql.catalyst.catalog.CatalogTypes.TablePartitionSpec
 import org.apache.spark.sql.execution.command.{AlterTableRecoverPartitionsCommand, DDLUtils, PartitionStatistics, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
-import org.apache.spark.sql.internal.SessionState
-import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.util.{SerializableConfiguration, ThreadUtils}
 
-import scala.collection.mutable.HashMap
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.collection.{GenMap, GenSeq}
+import scala.collection.parallel.ForkJoinTaskSupport
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 18:21
   */
-case class KatanaAlterTableRecoverPartitions(delegate: AlterTableRecoverPartitionsCommand,
-                                             hiveCatalogs: HashMap[String, SessionCatalog])
-                                            (@transient private val sessionState: SessionState,
+case class KatanaAlterTableRecoverPartitions(delegate: AlterTableRecoverPartitionsCommand)
+                                            (@transient private val session: SparkSession,
                                              @transient private val katana: KatanaContext) extends RunnableCommand {
 
   // These are list of statistics that can be collected quickly without requiring a scan of the data
@@ -54,7 +51,6 @@ case class KatanaAlterTableRecoverPartitions(delegate: AlterTableRecoverPartitio
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

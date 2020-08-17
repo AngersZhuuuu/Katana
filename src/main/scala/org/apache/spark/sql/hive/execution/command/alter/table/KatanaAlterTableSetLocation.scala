@@ -1,29 +1,23 @@
 package org.apache.spark.sql.hive.execution.command.alter.table
 
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.catalog.{CatalogUtils, SessionCatalog}
-import org.apache.spark.sql.execution.command._
-import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
-import org.apache.spark.sql.internal.SessionState
 import org.apache.spark.sql.{Row, SparkSession}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.catalyst.catalog.CatalogUtils
+import org.apache.spark.sql.execution.command._
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
+import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 17:08
   */
-case class KatanaAlterTableSetLocation(delegate: AlterTableSetLocationCommand,
-                                       hiveCatalogs: HashMap[String, SessionCatalog])
-                                      (@transient private val sessionState: SessionState,
+case class KatanaAlterTableSetLocation(delegate: AlterTableSetLocationCommand)
+                                      (@transient private val session: SparkSession,
                                        @transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 
@@ -43,7 +37,7 @@ case class KatanaAlterTableSetLocation(delegate: AlterTableSetLocationCommand,
         catalog.alterTable(table.withNewStorage(locationUri = Some(locUri)))
     }
 
-    KatanaCommandUtils.updateTableStats(catalog, sessionState, sparkSession, table)
+    KatanaCommandUtils.updateTableStats(catalog, session, sparkSession, table)
     Seq.empty[Row]
   }
 }

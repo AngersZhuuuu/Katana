@@ -3,30 +3,24 @@ package org.apache.spark.sql.hive.execution.command.load
 import java.net.URI
 
 import org.apache.hadoop.fs.{FileContext, FsConstants, Path}
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.catalog.{CatalogTableType, SessionCatalog}
-import org.apache.spark.sql.execution.command.{DDLUtils, LoadDataCommand, RunnableCommand}
-import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
-import org.apache.spark.sql.hive.{KatanaContext, KatanaExtension, CatalogSchemaUtil}
-import org.apache.spark.sql.internal.SessionState
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.catalyst.catalog.CatalogTableType
+import org.apache.spark.sql.execution.command.{DDLUtils, LoadDataCommand, RunnableCommand}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
+import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 10:45
   */
-case class KatanaLoadData(delegate: LoadDataCommand,
-                          hiveCatalogs: HashMap[String, SessionCatalog])
-                         (@transient private val sessionState: SessionState,
+case class KatanaLoadData(delegate: LoadDataCommand)
+                         (@transient private val session: SparkSession,
                           @transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.table.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
     val targetTable = catalog.getTableMetadata(delegate.table)
@@ -121,7 +115,7 @@ case class KatanaLoadData(delegate: LoadDataCommand,
     // Refresh the metadata cache to ensure the data visible to the users
     catalog.refreshTable(targetTable.identifier)
 
-    KatanaCommandUtils.updateTableStats(catalog, sessionState, sparkSession, targetTable)
+    KatanaCommandUtils.updateTableStats(catalog, session, sparkSession, targetTable)
     Seq.empty[Row]
   }
 }

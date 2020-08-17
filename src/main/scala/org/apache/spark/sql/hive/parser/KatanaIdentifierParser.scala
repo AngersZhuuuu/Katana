@@ -1,20 +1,17 @@
 package org.apache.spark.sql.hive.parser
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.catalyst.{FunctionIdentifier, TableIdentifier}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.catalog.{CatalogTable, SessionCatalog}
 import org.apache.spark.sql.catalyst.expressions.{Expression, SubqueryExpression}
 import org.apache.spark.sql.catalyst.parser.ParserInterface
 import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoTable, LogicalPlan, SubqueryAlias, With}
-import org.apache.spark.sql.catalyst.{FunctionIdentifier, TableIdentifier}
 import org.apache.spark.sql.execution.SparkSqlParser
 import org.apache.spark.sql.execution.command._
 import org.apache.spark.sql.execution.datasources.CreateTable
 import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.SparkException
-
-import scala.collection.mutable.HashMap
 
 /**
   * @author angers.zhu@gmail.com
@@ -25,14 +22,13 @@ case class KatanaIdentifierParser(getOrCreateKatanaContext: SparkSession => Kata
                                   delegate: ParserInterface) extends ParserInterface {
 
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
-  private val hiveCatalogs: HashMap[String, SessionCatalog] = katanaContext.hiveCatalogs
   private lazy val internal = new SparkSqlParser(sparkSession.sqlContext.conf)
 
   // 补全 database 和 catalog 信息， 如果是默认catalog，catalog位为空
   def qualifyTableIdentifierInternal(tableIdentifier: TableIdentifier): TableIdentifier = {
-    val catalog = katanaContext.getActiveSessionState.getOrElse(sparkSession.sessionState).catalog
+    val catalog = katanaContext.getActiveSession.getOrElse(sparkSession).sessionState.catalog
     val currentDB = catalog.getCurrentDatabase
-    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, hiveCatalogs)
+    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, katanaContext)
     if (catalogName.isEmpty) {
       throw new SparkException("Can't find current catalog")
     } else {

@@ -22,7 +22,6 @@ import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.{Date, Locale, Random}
 
-import scala.util.control.NonFatal
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.hive.common.FileUtils
@@ -37,6 +36,8 @@ import org.apache.spark.sql.execution.datasources.FileFormatWriter
 import org.apache.spark.sql.hive.{HiveExternalCatalog, KatanaContext}
 import org.apache.spark.sql.hive.HiveShim.{ShimFileSinkDesc => FileSinkDesc}
 import org.apache.spark.sql.hive.client.HiveVersion
+
+import scala.util.control.NonFatal
 
 // Base trait from which all hive insert statement physical execution extends.
 private[hive] trait KatanaSaveAsHiveFile extends DataWritingCommand {

@@ -1,30 +1,26 @@
 package org.apache.spark.sql.hive.execution.command.truncate
 
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.NoSuchPartitionException
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
-import org.apache.spark.sql.catalyst.catalog.{CatalogStatistics, CatalogTableType, SessionCatalog}
+import org.apache.spark.sql.catalyst.analysis.NoSuchPartitionException
+import org.apache.spark.sql.catalyst.catalog.{CatalogStatistics, CatalogTableType}
 import org.apache.spark.sql.execution.command.{DDLUtils, RunnableCommand, TruncateTableCommand}
 import org.apache.spark.sql.execution.datasources.PartitioningUtils
-import org.apache.spark.sql.hive.{KatanaContext, KatanaExtension, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
-import scala.collection.mutable.HashMap
 import scala.util.control.NonFatal
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 10:11
   */
-case class KatanaTruncateTable(delegate: TruncateTableCommand,
-                               hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaTruncateTable(delegate: TruncateTableCommand)
                               (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

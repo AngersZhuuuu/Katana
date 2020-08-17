@@ -1,26 +1,20 @@
 package org.apache.spark.sql.hive.execution.command.alter.table
 
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.{Row, SparkSession}
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.execution.command.{AlterTableSetPropertiesCommand, DDLUtils, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 17:17
   */
-case class KatanaAlterTableSetProperties(delegate: AlterTableSetPropertiesCommand,
-                                         hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaAlterTableSetProperties(delegate: AlterTableSetPropertiesCommand)
                                         (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

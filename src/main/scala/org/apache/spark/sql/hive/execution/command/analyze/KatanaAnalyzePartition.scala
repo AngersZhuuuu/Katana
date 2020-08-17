@@ -1,26 +1,22 @@
 package org.apache.spark.sql.hive.execution.command.analyze
 
+import org.apache.spark.sql.{AnalysisException, Column, Row, SparkSession}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{NoSuchPartitionException, UnresolvedAttribute}
+import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogTableType, ExternalCatalogUtils}
 import org.apache.spark.sql.catalyst.catalog.CatalogTypes.TablePartitionSpec
-import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogTableType, ExternalCatalogUtils, SessionCatalog}
 import org.apache.spark.sql.catalyst.expressions.{And, EqualTo, Literal}
 import org.apache.spark.sql.execution.command.{AnalyzePartitionCommand, RunnableCommand}
 import org.apache.spark.sql.execution.datasources.PartitioningUtils
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
-import org.apache.spark.sql.internal.SessionState
-import org.apache.spark.sql.{AnalysisException, Column, Row, SparkSession}
-
-import scala.collection.mutable.HashMap
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 9:19
   */
-case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand,
-                                  hiveCatalogs: HashMap[String, SessionCatalog])
-                                 (@transient private val sessionState: SessionState,
+case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand)
+                                 (@transient private val session: SparkSession,
                                   @transient private val katana: KatanaContext) extends RunnableCommand {
   private def getPartitionSpec(table: CatalogTable): Option[TablePartitionSpec] = {
     val normalizedPartitionSpec =
@@ -54,7 +50,6 @@ case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand,
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableIdent.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 
@@ -89,7 +84,7 @@ case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand,
     // recorded in the metastore.
     val newPartitions = partitions.flatMap { p =>
       val newTotalSize = KatanaCommandUtils.calculateLocationSize(
-        sessionState, delegate.tableIdent, p.storage.locationUri)
+        session.sessionState, delegate.tableIdent, p.storage.locationUri)
       val newRowCount = rowCounts.get(p.spec)
       val newStats = KatanaCommandUtils.compareAndGetNewStats(tableMeta.stats, newTotalSize, newRowCount)
       newStats.map(_ => p.copy(stats = newStats))

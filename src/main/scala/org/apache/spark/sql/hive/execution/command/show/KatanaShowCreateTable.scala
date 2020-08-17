@@ -1,22 +1,19 @@
 package org.apache.spark.sql.hive.execution.command.show
 
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
+import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogUtils}
 import org.apache.spark.sql.catalyst.catalog.CatalogTableType.{EXTERNAL, MANAGED, VIEW}
-import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogUtils, SessionCatalog}
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.catalyst.util.{escapeSingleQuotedString, quoteIdentifier}
 import org.apache.spark.sql.execution.command.{DDLUtils, RunnableCommand, ShowCreateTableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, KatanaExtension, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.StringType
-
-import scala.collection.mutable
 
 /**
  * @author angers.zhu@gmail.com
  * @date 2019/5/29 11:08
  */
-case class KatanaShowCreateTable(delegate: ShowCreateTableCommand,
-                                 hiveCatalogs: mutable.HashMap[String, SessionCatalog])
+case class KatanaShowCreateTable(delegate: ShowCreateTableCommand)
                                 (@transient private val katana: KatanaContext)
   extends RunnableCommand {
 
@@ -28,7 +25,6 @@ case class KatanaShowCreateTable(delegate: ShowCreateTableCommand,
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.table.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

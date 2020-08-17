@@ -1,20 +1,17 @@
 package org.apache.spark.sql.hive.execution.command.desc
 
-import org.apache.spark.sql.catalyst.catalog.{CatalogDatabase, CatalogUtils, SessionCatalog}
+import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.catalyst.catalog.{CatalogDatabase, CatalogUtils}
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.execution.command.{DescribeDatabaseCommand, RunnableCommand}
 import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.StringType
-import org.apache.spark.sql.{Row, SparkSession}
-
-import scala.collection.mutable.HashMap
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 10:42
   */
-case class KatanaDescDatabase(delegate: DescribeDatabaseCommand,
-                              hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaDescDatabase(delegate: DescribeDatabaseCommand)
                              (@transient private val katana: KatanaContext)extends RunnableCommand {
 
   override val output: Seq[Attribute] = {
@@ -23,8 +20,11 @@ case class KatanaDescDatabase(delegate: DescribeDatabaseCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, hiveCatalogs, sparkSession, katana)
-    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, hiveCatalogs)
+    val catalog = CatalogSchemaUtil.getCatalog(
+      delegate.catalog,
+      sparkSession,
+      katana)
+    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, katana)
     val dbMetadata: CatalogDatabase =
       catalog.getDatabaseMetadata(delegate.databaseName)
     val result =

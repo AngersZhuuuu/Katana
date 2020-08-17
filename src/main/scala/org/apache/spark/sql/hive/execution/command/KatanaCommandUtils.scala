@@ -19,11 +19,11 @@ import scala.util.control.NonFatal
 object KatanaCommandUtils extends Logging {
 
   /** Change statistics after changing data by commands. */
-  def updateTableStats(catalog: SessionCatalog, sessionState: SessionState, sparkSession: SparkSession, table: CatalogTable): Unit = {
+  def updateTableStats(catalog: SessionCatalog, session: SparkSession, sparkSession: SparkSession, table: CatalogTable): Unit = {
     if (table.stats.nonEmpty) {
-      if (sessionState.conf.autoSizeUpdateEnabled) {
+      if (session.sessionState.conf.autoSizeUpdateEnabled) {
         val newTable = catalog.getTableMetadata(table.identifier)
-        val newSize = KatanaCommandUtils.calculateTotalSize(catalog, table.identifier, sessionState, sparkSession, newTable)
+        val newSize = KatanaCommandUtils.calculateTotalSize(catalog, table.identifier, session.sessionState, sparkSession, newTable)
         val newStats = CatalogStatistics(sizeInBytes = newSize)
         catalog.alterTableStats(table.identifier, Some(newStats))
       } else {

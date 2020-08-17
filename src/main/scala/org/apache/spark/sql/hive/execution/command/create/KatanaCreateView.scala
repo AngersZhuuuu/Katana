@@ -1,25 +1,21 @@
 package org.apache.spark.sql.hive.execution.command.create
 
+import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedFunction, UnresolvedRelation}
-import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
-import org.apache.spark.sql.catalyst.catalog.{CatalogStorageFormat, CatalogTable, CatalogTableType, SessionCatalog}
+import org.apache.spark.sql.catalyst.catalog.{CatalogStorageFormat, CatalogTable, CatalogTableType}
 import org.apache.spark.sql.catalyst.expressions.Alias
 import org.apache.spark.sql.catalyst.plans.QueryPlan
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Project}
-import org.apache.spark.sql.execution.command.ViewHelper.{checkCyclicViewReference, generateViewProperties}
 import org.apache.spark.sql.execution.command._
-import org.apache.spark.sql.hive.{KatanaContext, KatanaExtension, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.MetadataBuilder
-
-import scala.collection.mutable.HashMap
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 15:07
   */
-case class KatanaCreateView(delegate: CreateViewCommand,
-                            hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaCreateView(delegate: CreateViewCommand)
                            (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   import ViewHelper._
@@ -64,7 +60,6 @@ case class KatanaCreateView(delegate: CreateViewCommand,
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.name.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

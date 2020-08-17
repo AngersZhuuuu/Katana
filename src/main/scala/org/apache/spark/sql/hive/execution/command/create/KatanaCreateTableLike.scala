@@ -1,32 +1,26 @@
 package org.apache.spark.sql.hive.execution.command.create
 
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogTableType, CatalogUtils, SessionCatalog}
-import org.apache.spark.sql.execution.command.{CreateTableLikeCommand, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
 import org.apache.spark.sql.{Row, SparkSession}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogTableType, CatalogUtils}
+import org.apache.spark.sql.execution.command.{CreateTableLikeCommand, RunnableCommand}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 14:51
   */
-case class KatanaCreateTableLike(delegate: CreateTableLikeCommand,
-                                 hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaCreateTableLike(delegate: CreateTableLikeCommand)
                                 (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalogTarget =
       CatalogSchemaUtil.getCatalog(
         delegate.targetTable.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 
     val catalogSource =
       CatalogSchemaUtil.getCatalog(
         delegate.sourceTable.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

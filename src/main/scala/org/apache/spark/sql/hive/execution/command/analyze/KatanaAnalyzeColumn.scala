@@ -1,36 +1,33 @@
 package org.apache.spark.sql.hive.execution.command.analyze
 
-import org.apache.spark.sql.catalyst.catalog.{CatalogColumnStat, CatalogStatistics, CatalogTableType, SessionCatalog}
-import org.apache.spark.sql.catalyst.expressions.aggregate._
+import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
+import org.apache.spark.sql.catalyst.{InternalRow, TableIdentifier}
+import org.apache.spark.sql.catalyst.catalog.{CatalogColumnStat, CatalogStatistics, CatalogTableType}
 import org.apache.spark.sql.catalyst.expressions.{Alias, Attribute, AttributeMap, Cast, Ceil, Coalesce, CreateNamedStruct, CreateStruct, Expression, Least, Length, Literal, Subtract}
+import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.util.ArrayData
-import org.apache.spark.sql.catalyst.{InternalRow, TableIdentifier}
 import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.execution.command.{AnalyzeColumnCommand, RunnableCommand}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
-import org.apache.spark.sql.internal.{SQLConf, SessionState}
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 
 import scala.collection.mutable
-import scala.collection.mutable.HashMap
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 9:26
   */
-case class KatanaAnalyzeColumn(delegate: AnalyzeColumnCommand,
-                               hiveCatalogs: HashMap[String, SessionCatalog])
-                              (@transient private val sessionState: SessionState,
+case class KatanaAnalyzeColumn(delegate: AnalyzeColumnCommand)
+                              (@transient private val session: SparkSession,
                                @transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableIdent.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 
@@ -38,7 +35,7 @@ case class KatanaAnalyzeColumn(delegate: AnalyzeColumnCommand,
     if (tableMeta.tableType == CatalogTableType.VIEW) {
       throw new AnalysisException("ANALYZE TABLE is not supported on views.")
     }
-    val sizeInBytes = KatanaCommandUtils.calculateTotalSize(catalog, delegate.tableIdent, sessionState, sparkSession, tableMeta)
+    val sizeInBytes = KatanaCommandUtils.calculateTotalSize(catalog, delegate.tableIdent, session.sessionState, sparkSession, tableMeta)
 
     // Compute stats for each column
     val (rowCount, newColStats) = computeColumnStats(sparkSession, delegate.tableIdent, delegate.columnNames)

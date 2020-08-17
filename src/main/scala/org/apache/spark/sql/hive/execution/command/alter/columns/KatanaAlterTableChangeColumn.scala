@@ -1,21 +1,16 @@
 package org.apache.spark.sql.hive.execution.command.alter.columns
 
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.Resolver
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
-import org.apache.spark.sql.execution.command.{AlterTableChangeColumnCommand, DDLUtils, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
-import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.catalyst.analysis.Resolver
+import org.apache.spark.sql.execution.command.{AlterTableChangeColumnCommand, DDLUtils, RunnableCommand}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
+import org.apache.spark.sql.types.{StructField, StructType}
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 18:34
   */
-case class KatanaAlterTableChangeColumn(delegate: AlterTableChangeColumnCommand,
-                                        hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaAlterTableChangeColumn(delegate: AlterTableChangeColumnCommand)
                                        (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   // TODO: support change column name/dataType/metadata/position.
@@ -23,7 +18,6 @@ case class KatanaAlterTableChangeColumn(delegate: AlterTableChangeColumnCommand,
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

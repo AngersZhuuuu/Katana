@@ -1,14 +1,11 @@
 package org.apache.spark.sql.hive.analyze
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{EliminateSubqueryAliases, NoSuchDatabaseException, NoSuchTableException, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.catalog.{HiveTableRelation, SessionCatalog, UnresolvedCatalogRelation}
+import org.apache.spark.sql.catalyst.catalog.UnresolvedCatalogRelation
 import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoTable, LogicalPlan, SubqueryAlias}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
-
-import scala.collection.mutable._
 
 /**
   * @author angers.zhu@gmail.com
@@ -18,7 +15,6 @@ case class KatanaHiveRelationRule(getOrCreateKatanaContext: SparkSession => Kata
                                  (sparkSession: SparkSession)
   extends Rule[LogicalPlan] {
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
-  private val hiveCatalogs: HashMap[String, SessionCatalog] = katanaContext.hiveCatalogs
 
   override def apply(plan: LogicalPlan): LogicalPlan = {
     plan transformUp resolveHiveSchema
@@ -33,7 +29,7 @@ case class KatanaHiveRelationRule(getOrCreateKatanaContext: SparkSession => Kata
   }
 
   private def lookupTableFromCatalog(u: UnresolvedRelation): LogicalPlan = {
-    val catalog = CatalogSchemaUtil.getCatalog(u.tableIdentifier.catalog, hiveCatalogs, sparkSession, katanaContext)
+    val catalog = CatalogSchemaUtil.getCatalog(u.tableIdentifier.catalog, sparkSession, katanaContext)
     try {
       // 处理relation 同时补全catalog信息
       catalog.lookupRelation(u.tableIdentifier) transformDown {

@@ -1,29 +1,23 @@
 package org.apache.spark.sql.hive.execution.command.analyze
 
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.catalog.{CatalogTableType, SessionCatalog}
-import org.apache.spark.sql.execution.command.{AnalyzeTableCommand, RunnableCommand}
-import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
-import org.apache.spark.sql.internal.SessionState
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.catalyst.catalog.CatalogTableType
+import org.apache.spark.sql.execution.command.{AnalyzeTableCommand, RunnableCommand}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
+import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 9:14
   */
-case class KatanaAnalyzeTable(delegate: AnalyzeTableCommand,
-                              hiveCatalogs: HashMap[String, SessionCatalog])
-                             (@transient private val sessionState: SessionState,
+case class KatanaAnalyzeTable(delegate: AnalyzeTableCommand)
+                             (@transient private val session: SparkSession,
                               @transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.tableIdent.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 
@@ -33,7 +27,13 @@ case class KatanaAnalyzeTable(delegate: AnalyzeTableCommand,
     }
 
     // Compute stats for the whole table
-    val newTotalSize = KatanaCommandUtils.calculateTotalSize(catalog, delegate.tableIdent, sessionState, sparkSession, tableMeta)
+    val newTotalSize =
+      KatanaCommandUtils.calculateTotalSize(
+        catalog,
+        delegate.tableIdent,
+        session.sessionState,
+        sparkSession,
+        tableMeta)
     val newRowCount =
       if (delegate.noscan) None else Some(BigInt(sparkSession.table(delegate.tableIdent).count()))
 

@@ -3,16 +3,15 @@ package org.apache.spark.sql.hive
 import java.util.concurrent._
 
 import org.apache.hadoop.hive.ql.metadata.Hive
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.hive.conf.KatanaConf
-import org.apache.spark.sql.internal.{SessionState, StaticSQLConf}
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.internal.StaticSQLConf
 
 import scala.collection.mutable.HashMap
-import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Promise}
+import scala.concurrent.duration.Duration
 
 /**
  * @author angers.zhu@gmail.com
@@ -23,31 +22,22 @@ class KatanaContext(val sparkSession: SparkSession) extends Logging {
   import KatanaContext._
 
   val sessionId = sparkSession.hashCode()
-  val katanaSessionState: HashMap[String, SessionState] = HashMap.empty[String, SessionState]
-  val hiveCatalogs: HashMap[String, SessionCatalog] = HashMap.empty[String, SessionCatalog]
-  private var activeSessionState: Option[SessionState] = None
+  private var activeSparkSession:Option[SparkSession] = None
+  val sessions = HashMap.empty[String, SparkSession]
 
   def initial(): Unit = {
     init(sparkSession)
     getOrCrateHiveCatalog()
   }
 
-  def getActiveSessionState(): Option[SessionState] = {
-    activeSessionState
-  }
+  def getActiveSession(): Option[SparkSession] = activeSparkSession
 
-  def setActiveSessionState(sessionState: SessionState): Unit = {
-    activeSessionState = Some(sessionState)
-  }
-
-  def setDefaultInternalCatalog: Unit = {
-    // Add default internal hive catalog
-    hiveCatalogs.put(INTERNAL_HMS_NAME, sparkSession.sessionState.catalog)
-    katanaSessionState.put(INTERNAL_HMS_NAME, sparkSession.sessionState)
+  def setActiveSession(sparkSession: SparkSession):Unit = {
+    activeSparkSession = Some(sparkSession)
   }
 
   def getOrCrateHiveCatalog(): Unit = {
-    if (hiveCatalogs.isEmpty) {
+    if (sessions.isEmpty) {
       uriMap.keySet.foreach(schema => {
         val url: String = uriMap(schema)
         val warehouse: String = warehouseMap(schema)
@@ -58,15 +48,15 @@ class KatanaContext(val sparkSession: SparkSession) extends Logging {
         /**
          * For lazy var, we should initial it before change SparkContext's configuration
          */
-        val (sessionState, sessionCatalog) = {
+        val (newSession, _, _) = {
           val newSession = session.newSession()
-          (newSession.sessionState, newSession.sessionState.catalog.asInstanceOf[HiveSessionCatalog])
+          (newSession, newSession.sessionState, newSession.sessionState.catalog.asInstanceOf[HiveSessionCatalog])
         }
         session.sparkContext.conf.remove(HIVE_METASTORE_URIS)
         session.sparkContext.conf.remove(HIVE_METASTORE_WAREHOUSE)
         session.sparkContext.conf.remove(WAREHOUSE_PATH)
-        hiveCatalogs.put(schema, sessionCatalog)
-        katanaSessionState.put(schema, sessionState)
+
+        sessions.put(schema, newSession)
       })
     }
   }

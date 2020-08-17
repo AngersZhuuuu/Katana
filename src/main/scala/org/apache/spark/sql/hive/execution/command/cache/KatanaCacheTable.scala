@@ -1,18 +1,14 @@
 package org.apache.spark.sql.hive.execution.command.cache
 
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.plans.QueryPlan
-import org.apache.spark.sql.execution.command.{CacheTableCommand, RunnableCommand, SetDatabaseCommand}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.execution.command.{CacheTableCommand, RunnableCommand}
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 11:04
   */
-case class KatanaCacheTable(delegate: CacheTableCommand,
-                            hiveCatalog: HashMap[String, SessionCatalog]) extends RunnableCommand {
+case class KatanaCacheTable(delegate: CacheTableCommand) extends RunnableCommand {
   require(delegate.plan.isEmpty || delegate.tableIdent.database.isEmpty,
     "Database name is not allowed in CACHE TABLE AS SELECT")
 

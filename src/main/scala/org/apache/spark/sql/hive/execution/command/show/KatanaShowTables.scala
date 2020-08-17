@@ -2,20 +2,16 @@ package org.apache.spark.sql.hive.execution.command.show
 
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.execution.command.{RunnableCommand, ShowTablesCommand}
 import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.{BooleanType, StringType}
 
-import scala.collection.mutable.HashMap
-
 /**
  * @author angers.zhu@gmail.com
  * @date 2019/5/28 18:13
  */
-case class KatanaShowTables(delegate: ShowTablesCommand,
-                            hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaShowTables(delegate: ShowTablesCommand)
                            (@transient private val katana: KatanaContext) extends RunnableCommand {
   override val output: Seq[Attribute] = {
     val tableExtendedInfo = if (delegate.isExtended) {
@@ -30,8 +26,8 @@ case class KatanaShowTables(delegate: ShowTablesCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, hiveCatalogs, sparkSession, katana)
-    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, hiveCatalogs)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, sparkSession, katana)
+    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, katana)
     val db = delegate.databaseName.getOrElse(catalog.getCurrentDatabase)
     if (delegate.partitionSpec.isEmpty) {
       // Show the information of tables.

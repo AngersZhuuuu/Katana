@@ -1,19 +1,16 @@
 package org.apache.spark.sql.hive.execution.command.create
 
-import org.apache.spark.sql.catalyst.FunctionIdentifier
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
-import org.apache.spark.sql.catalyst.catalog.{CatalogFunction, SessionCatalog}
+import org.apache.spark.sql.catalyst.FunctionIdentifier
+import org.apache.spark.sql.catalyst.catalog.CatalogFunction
 import org.apache.spark.sql.execution.command.{CreateFunctionCommand, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, KatanaExtension, CatalogSchemaUtil}
-
-import scala.collection.mutable.HashMap
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 15:02
   */
-case class KatanaCreateFunction(delegate: CreateFunctionCommand,
-                                hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaCreateFunction(delegate: CreateFunctionCommand)
                                (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   if (delegate.ignoreIfExists && delegate.replace) {
@@ -37,7 +34,6 @@ case class KatanaCreateFunction(delegate: CreateFunctionCommand,
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

@@ -1,5 +1,6 @@
 package org.apache.spark.sql.hive.execution.command.alter.columns
 
+import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogTableType, SessionCatalog}
 import org.apache.spark.sql.execution.command.{AlterTableAddColumnsCommand, DDLUtils, RunnableCommand}
@@ -7,32 +8,28 @@ import org.apache.spark.sql.execution.datasources.DataSource
 import org.apache.spark.sql.execution.datasources.csv.CSVFileFormat
 import org.apache.spark.sql.execution.datasources.json.JsonFileFormat
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
-import org.apache.spark.sql.internal.{SQLConf, SessionState}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.SchemaUtils
-import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 
-import scala.collection.mutable.HashMap
 import scala.util.control.NonFatal
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 18:33
   */
-case class KatanaAlterTableAddColumns(delegate: AlterTableAddColumnsCommand,
-                                      hiveCatalogs: HashMap[String, SessionCatalog])
-                                     (@transient private val sessionState: SessionState,
+case class KatanaAlterTableAddColumns(delegate: AlterTableAddColumnsCommand)
+                                     (@transient private val session: SparkSession,
                                       @transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.table.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 
-    val catalogTable = verifyAlterTableAddColumn(sessionState.conf, catalog, delegate.table)
+    val catalogTable = verifyAlterTableAddColumn(session.sessionState.conf, catalog, delegate.table)
 
     try {
       sparkSession.catalog.uncacheTable(delegate.table.quotedString)

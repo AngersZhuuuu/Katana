@@ -1,21 +1,20 @@
 package org.apache.spark.sql.hive.execution.command.desc
 
+import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.catalog.{CatalogTable, CatalogTablePartition, CatalogTableType, SessionCatalog}
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.execution.command.{DDLUtils, DescribeTableCommand, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.{MetadataBuilder, StringType, StructType}
-import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable.ArrayBuffer
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 10:47
   */
-case class KatanaDescTable(delegate: DescribeTableCommand,
-                           hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaDescTable(delegate: DescribeTableCommand)
                           (@transient private val katana: KatanaContext) extends RunnableCommand {
   override val output: Seq[Attribute] = Seq(
     // Column names are based on Hive.
@@ -33,7 +32,6 @@ case class KatanaDescTable(delegate: DescribeTableCommand,
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.table.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

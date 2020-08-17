@@ -1,23 +1,20 @@
 package org.apache.spark.sql.hive.execution.command.desc
 
-import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
 import org.apache.spark.sql.catalyst.plans.logical.Histogram
 import org.apache.spark.sql.execution.command.{DescribeColumnCommand, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, KatanaExtension, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.{MetadataBuilder, StringType}
 
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable.ArrayBuffer
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 10:57
   */
-case class KatanaDescColumns(delegate: DescribeColumnCommand,
-                             hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaDescColumns(delegate: DescribeColumnCommand)
                             (@transient private val katana: KatanaContext) extends RunnableCommand {
   override val output: Seq[Attribute] = {
     Seq(
@@ -32,7 +29,6 @@ case class KatanaDescColumns(delegate: DescribeColumnCommand,
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.table.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 

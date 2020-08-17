@@ -11,11 +11,13 @@ import scala.collection.mutable.HashMap
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 16:53
   */
-case class KatanaAlterDatabaseProperties(delegate: AlterDatabasePropertiesCommand,
-                                         hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaAlterDatabaseProperties(delegate: AlterDatabasePropertiesCommand)
                                         (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, hiveCatalogs, sparkSession, katana)
+    val catalog = CatalogSchemaUtil.getCatalog(
+      delegate.catalog,
+      sparkSession,
+      katana)
 
     val db: CatalogDatabase = catalog.getDatabaseMetadata(delegate.databaseName)
     catalog.alterDatabase(db.copy(properties = db.properties ++ delegate.props))

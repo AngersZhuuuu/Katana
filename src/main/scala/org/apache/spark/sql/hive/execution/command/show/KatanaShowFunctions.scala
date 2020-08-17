@@ -1,18 +1,14 @@
 package org.apache.spark.sql.hive.execution.command.show
 
 
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
-import org.apache.spark.sql.execution.command.{RunnableCommand, ShowDatabasesCommand, ShowFunctionsCommand}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.execution.command.{RunnableCommand, ShowFunctionsCommand}
 import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-import scala.collection.mutable
 
-
-case class KatanaShowFunctions(delegate: ShowFunctionsCommand,
-                               hiveCatalogs: mutable.HashMap[String, SessionCatalog])
+case class KatanaShowFunctions(delegate: ShowFunctionsCommand)
                               (@transient private val katana: KatanaContext)
   extends RunnableCommand {
 
@@ -22,13 +18,16 @@ case class KatanaShowFunctions(delegate: ShowFunctionsCommand,
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, hiveCatalogs, sparkSession, katana)
+    val catalog = CatalogSchemaUtil.getCatalog(
+      delegate.catalog,
+      sparkSession,
+      katana)
 
     // when db is empty, catalog must be empty and will use current sessionState,
     // if current sessionState is none, use default.
     val dbName = delegate.db.getOrElse(
-      katana.getActiveSessionState().getOrElse(
-        sparkSession.sessionState).catalog.getCurrentDatabase)
+      katana.getActiveSession().getOrElse(
+        sparkSession).sessionState.catalog.getCurrentDatabase)
     // If pattern is not specified, we use '*', which is used to
     // match any sequence of characters (including no characters).
     val functionNames =

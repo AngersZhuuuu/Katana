@@ -2,23 +2,18 @@ package org.apache.spark.sql.hive.execution.command.desc
 
 import java.util.Locale
 
-import org.apache.spark.sql.catalyst.FunctionIdentifier
+import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.catalyst.analysis.NoSuchFunctionException
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution.command.{DescribeFunctionCommand, RunnableCommand}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{Row, SparkSession}
-
-import scala.collection.mutable.HashMap
 
 /**
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 11:01
   */
-case class KatanaDescFunction(delegate: DescribeFunctionCommand,
-                              hiveCatalogs: HashMap[String, SessionCatalog])
+case class KatanaDescFunction(delegate: DescribeFunctionCommand)
                              (@transient private val katana: KatanaContext) extends RunnableCommand {
   override val output: Seq[Attribute] = {
     val schema = StructType(StructField("function_desc", StringType, nullable = false) :: Nil)
@@ -38,7 +33,6 @@ case class KatanaDescFunction(delegate: DescribeFunctionCommand,
     val catalog =
       CatalogSchemaUtil.getCatalog(
         delegate.functionName.catalog,
-        hiveCatalogs,
         sparkSession,
         katana)
 
