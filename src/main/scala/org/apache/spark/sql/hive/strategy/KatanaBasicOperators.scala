@@ -15,8 +15,8 @@ import org.apache.spark.sql.hive.execution.command.cache.{KatanaCacheTable, Kata
 import org.apache.spark.sql.hive.execution.command.create.{KatanaCreateTable, KatanaCreateTableLike, KatanaCreateView}
 import org.apache.spark.sql.hive.execution.command.load.KatanaLoadData
 import org.apache.spark.sql.hive.execution.command.truncate.KatanaTruncateTable
-import org.apache.spark.sql.hive.execution.{KatanaCreateHiveTableAsSelectCommand, KatanaInsertIntoHiveTable, CreateHiveTableAsSelectCommand, InsertIntoHiveTable}
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.execution._
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.internal.SessionState
 import org.apache.spark.sql.{SparkSession, Strategy}
 
@@ -40,18 +40,22 @@ case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => Katana
      */
 
     //      在 Analyze 中已经处理过InsertInto 的Relation， 故此处不需要处理
-    case _@InsertIntoHiveTable(tableMeta, partition, query, overwrite, ifPartitionNotExists, outputColumnNames) => {
+    case InsertIntoHiveTable(tableMeta, partition, query, overwrite, ifPartitionNotExists, outputColumnNames) =>
       val catalog = CatalogSchemaUtil.getCatalog(tableMeta.identifier.catalog, hiveCatalogs, sparkSession, katanaContext)
       val sessionState = CatalogSchemaUtil.getSessionState(tableMeta.identifier.catalog, katanaSessionStates, sparkSession, katanaContext)
+      val catalogName = CatalogSchemaUtil.getCatalogName(catalog, hiveCatalogs)
       val katanaPlan = KatanaInsertIntoHiveTable(tableMeta, partition, query, overwrite,
-        ifPartitionNotExists, outputColumnNames)(catalog, sessionState)
+        ifPartitionNotExists, outputColumnNames)(catalog, catalogName, sessionState)
       DataWritingCommandExec(katanaPlan, planLater(katanaPlan.query)) :: Nil
-    }
+
+    case InsertIntoHiveDirCommand(isLocal, storage, query, overwrite, outputColumnNames) =>
+      val katanaPlan = KatanaInsertIntoDir(isLocal, storage, query, overwrite, outputColumnNames)
+      DataWritingCommandExec(katanaPlan, planLater(katanaPlan.query)) :: Nil
 
     /**
      * Create DDL
      */
-    case ctas@CreateHiveTableAsSelectCommand(tableDesc, query, outputColumnNames, mode) =>
+    case CreateHiveTableAsSelectCommand(tableDesc, query, outputColumnNames, mode) =>
       val catalog =
         CatalogSchemaUtil.getCatalog(
           tableDesc.identifier.catalog,
@@ -66,7 +70,8 @@ case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => Katana
           sparkSession,
           katanaContext)
 
-      val katanaPlan = KatanaCreateHiveTableAsSelectCommand(tableDesc, query, outputColumnNames, mode)(catalog, sessionState)
+      val catalogName = CatalogSchemaUtil.getCatalogName(catalog, hiveCatalogs)
+      val katanaPlan = KatanaCreateHiveTableAsSelectCommand(tableDesc, query, outputColumnNames, mode)(catalog, catalogName, sessionState)
       DataWritingCommandExec(katanaPlan, planLater(katanaPlan.query)) :: Nil
 
     case createTable: CreateTableCommand => ExecutedCommandExec(KatanaCreateTable(createTable, hiveCatalogs)(katanaContext)) :: Nil

@@ -12,12 +12,14 @@ import org.apache.spark.sql.types.StringType
 import scala.collection.mutable
 
 /**
-  * @author angers.zhu@gmail.com
-  * @date 2019/5/29 11:08
-  */
+ * @author angers.zhu@gmail.com
+ * @date 2019/5/29 11:08
+ */
 case class KatanaShowCreateTable(delegate: ShowCreateTableCommand,
                                  hiveCatalogs: mutable.HashMap[String, SessionCatalog])
-                                (@transient private val katana: KatanaContext) extends RunnableCommand {
+                                (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
+
   override val output: Seq[Attribute] = Seq(
     AttributeReference("createtab_stmt", StringType, nullable = false)()
   )

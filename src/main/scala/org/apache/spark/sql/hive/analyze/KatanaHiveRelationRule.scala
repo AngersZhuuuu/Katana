@@ -3,10 +3,10 @@ package org.apache.spark.sql.hive.analyze
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.{EliminateSubqueryAliases, NoSuchDatabaseException, NoSuchTableException, UnresolvedRelation}
-import org.apache.spark.sql.catalyst.catalog.SessionCatalog
-import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoTable, LogicalPlan}
+import org.apache.spark.sql.catalyst.catalog.{HiveTableRelation, SessionCatalog, UnresolvedCatalogRelation}
+import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoTable, LogicalPlan, SubqueryAlias}
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.hive.{KatanaContext, CatalogSchemaUtil}
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
 import scala.collection.mutable._
 
@@ -35,7 +35,11 @@ case class KatanaHiveRelationRule(getOrCreateKatanaContext: SparkSession => Kata
   private def lookupTableFromCatalog(u: UnresolvedRelation): LogicalPlan = {
     val catalog = CatalogSchemaUtil.getCatalog(u.tableIdentifier.catalog, hiveCatalogs, sparkSession, katanaContext)
     try {
-      catalog.lookupRelation(u.tableIdentifier)
+      // 处理relation 同时补全catalog信息
+      catalog.lookupRelation(u.tableIdentifier) transformDown {
+        case sa@SubqueryAlias(alias, relation: UnresolvedCatalogRelation) =>
+          sa.copy(child = relation.copy(tableMeta = relation.tableMeta.copy(u.tableIdentifier)))
+      }
     } catch {
       case e: NoSuchTableException =>
         u.failAnalysis(s"Table or view note found: ${u.tableIdentifier.unquotedString}", e)

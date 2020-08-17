@@ -24,11 +24,12 @@ case class KatanaDescDatabase(delegate: DescribeDatabaseCommand,
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, hiveCatalogs, sparkSession, katana)
-
+    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, hiveCatalogs)
     val dbMetadata: CatalogDatabase =
       catalog.getDatabaseMetadata(delegate.databaseName)
     val result =
-      Row("Database Name", dbMetadata.name) ::
+      Row("Catalog", catalogName) ::
+        Row("Database Name", dbMetadata.name) ::
         Row("Description", dbMetadata.description) ::
         Row("Location", CatalogUtils.URIToString(dbMetadata.locationUri)) :: Nil
 

@@ -6,9 +6,8 @@ import org.apache.hadoop.hive.ql.metadata.Hive
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.catalog.SessionCatalog
-import org.apache.spark.sql.hive.KatanaContext.{HIVE_METASTORE_URIS, HIVE_METASTORE_WAREHOUSE, SPARK_PREFIX, WAREHOUSE_PATH}
 import org.apache.spark.sql.hive.conf.KatanaConf
-import org.apache.spark.sql.internal.SessionState
+import org.apache.spark.sql.internal.{SessionState, StaticSQLConf}
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.HashMap
@@ -80,18 +79,30 @@ object KatanaContext extends Logging {
   private val INTERNAL_HMS_NAME_DEFAULT = "default"
   private val HIVE_METASTORE_URIS = "hive.metastore.uris"
   private val HIVE_METASTORE_WAREHOUSE = "hive.metastore.warehouse.dir"
+  private val HIVE_STAGING_DIR = "hive.exec.stagingdir"
+  private val HIVE_SCRATCH_DIR = "hive.exec.scratchdir"
   private val WAREHOUSE_PATH = "spark.sql.warehouse.dir"
   private val SPARK_PREFIX = "spark"
 
   private var initialPool: Option[ThreadPoolExecutor] = None
   private val OBJECT_LOC = new Object()
-  private val schemaToSparkSession = new ConcurrentHashMap[String, SparkSession]()
-  private val hiveConfigUrl: HashMap[String, String] = HashMap.empty[String, String]
-  private val hiveConfigWarehouse: HashMap[String, String] = HashMap.empty[String, String]
+  private val catalogToSparkSession = new ConcurrentHashMap[String, SparkSession]()
+  private val katanaConfigUrl: HashMap[String, String] = HashMap.empty[String, String]
+  private val katanaConfigWarehouse: HashMap[String, String] = HashMap.empty[String, String]
+  private val katanaConfigStagingDir: HashMap[String, String] = HashMap.empty[String, String]
+  private val katanaConfigScratchDirMap: HashMap[String, String] = HashMap.empty[String, String]
 
-  def uriMap: HashMap[String, String] = hiveConfigUrl
+  def uriMap: HashMap[String, String] = katanaConfigUrl
 
-  def warehouseMap: HashMap[String, String] = hiveConfigWarehouse
+  def warehouseMap: HashMap[String, String] = katanaConfigWarehouse
+
+  def stagingDir(catalog: Option[String]): Option[String] = {
+    catalog.map(katanaConfigStagingDir.getOrElse(_, null))
+  }
+
+  def scratchDir(catalog: Option[String]): Option[String] = {
+    catalog.map(katanaConfigScratchDirMap.getOrElse(_, null))
+  }
 
   def init(sparkSession: SparkSession): Unit = OBJECT_LOC.synchronized {
     if (initialPool.isEmpty) {
@@ -101,7 +112,7 @@ object KatanaContext extends Logging {
     }
   }
 
-  def externalSparkSession(schema: String): SparkSession = schemaToSparkSession.get(schema)
+  def externalSparkSession(schema: String): SparkSession = catalogToSparkSession.get(schema)
 
   def initialThreadPool(conf: SparkConf): Unit = {
     val katanaThreadNum = conf.getInt(KatanaConf.KATANA_INITIAL_POLL_THREAD, 3)
@@ -120,20 +131,25 @@ object KatanaContext extends Logging {
 
   def initialExternalSession(sparkSession: SparkSession): Unit = OBJECT_LOC synchronized {
     INTERNAL_HMS_NAME = sparkSession.conf.get(KatanaConf.INTERNAL_HMS_NAME, INTERNAL_HMS_NAME_DEFAULT)
+    logInfo(s"Katana internal HMS alias is ${INTERNAL_HMS_NAME}")
     val catalogConf = sparkSession.conf.get(KatanaConf.MULTI_HIVE_INSTANCE)
-    catalogConf.split("&&").foreach(instance => {
-      val schema = instance.split("->")(0)
+    catalogConf.split("&&").foreach { instance =>
+      val catalog = instance.split("->")(0)
       val url = instance.split("->")(1)
-      val warehouse = sparkSession.sparkContext.conf.get(SPARK_PREFIX + "." + HIVE_METASTORE_WAREHOUSE + "." + schema, null)
-      if (warehouse == null)
+      val warehouse = sparkSession.sparkContext.conf.get(SPARK_PREFIX + "." + HIVE_METASTORE_WAREHOUSE + "." + catalog, null)
+      val stagingDir = sparkSession.sparkContext.conf.get(SPARK_PREFIX + "." + HIVE_STAGING_DIR + "." + catalog, null)
+      val scratch = sparkSession.sparkContext.conf.get(SPARK_PREFIX + "." + HIVE_SCRATCH_DIR + "." + catalog, null)
+      if (warehouse == null) {
         throw new Exception("We can't use a external Hive SessionCatalog without Warehouse Configuration")
-      else {
+      } else {
         val session: SparkSession = initialHiveCatalogAndSharedState(sparkSession.sparkContext, warehouse, url)
-        schemaToSparkSession.put(schema, session)
-        hiveConfigUrl.put(schema, url)
-        hiveConfigWarehouse.put(schema, warehouse)
+        catalogToSparkSession.put(catalog, session)
+        katanaConfigUrl.put(catalog, url)
+        katanaConfigWarehouse.put(catalog, warehouse)
+        katanaConfigStagingDir.put(catalog, stagingDir)
+        katanaConfigScratchDirMap.put(catalog, scratch)
       }
-    })
+    }
   }
 
   def initialHiveCatalogAndSharedState(sparkContext: SparkContext, warehouse: String, url: String): SparkSession = {
@@ -141,11 +157,17 @@ object KatanaContext extends Logging {
     val initialSparkSessionThread = new Runnable {
       override def run(): Unit = {
         sparkSession.trySuccess {
+          logInfo("Init Katana SparkSession started.........")
+          logInfo(s"uri = $url")
+          logInfo(s"warehouse = $warehouse")
+          val extensionConf = sparkContext.conf.get(StaticSQLConf.SPARK_SESSION_EXTENSIONS.key)
           sparkContext.conf.set(HIVE_METASTORE_URIS, url)
           sparkContext.conf.set(HIVE_METASTORE_WAREHOUSE, warehouse)
           sparkContext.conf.set(WAREHOUSE_PATH, warehouse)
+          sparkContext.conf.remove(StaticSQLConf.SPARK_SESSION_EXTENSIONS.key)
 
           Hive.closeCurrent()
+          logInfo("When init Katana SparkSession, close hive client")
           val newSparkSession = new SparkSession(sparkContext)
           newSparkSession.sharedState.externalCatalog
 
@@ -154,11 +176,13 @@ object KatanaContext extends Logging {
           sparkContext.conf.remove(HIVE_METASTORE_URIS)
           sparkContext.conf.remove(HIVE_METASTORE_WAREHOUSE)
           sparkContext.conf.remove(WAREHOUSE_PATH)
+          sparkContext.conf.set(StaticSQLConf.SPARK_SESSION_EXTENSIONS.key, extensionConf)
+          logInfo("Init Katana SparkSession finished.........")
           newSparkSession
         }
       }
     }
     initialPool.get.execute(initialSparkSessionThread)
-    Await.result(sparkSession.future, Duration(100, TimeUnit.SECONDS))
+    Await.result(sparkSession.future, Duration(300, TimeUnit.SECONDS))
   }
 }

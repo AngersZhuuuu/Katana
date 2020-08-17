@@ -29,7 +29,7 @@ case class KatanaHiveDDLRule(getOrCreateKatanaContext: SparkSession => KatanaCon
      * Support for SHOW command
      */
     case showDatabase: ShowDatabasesCommand =>
-      KatanaShowDatabases(showDatabase, hiveCatalogs)
+      KatanaShowDatabases(showDatabase, hiveCatalogs)(katanaContext)
     case setDatabase: SetDatabaseCommand =>
       val sessionState = CatalogSchemaUtil.getSessionState(setDatabase.catalog, katanaSessionState, sparkSession, katanaContext)
       KatanaSetDatabase(setDatabase)(sessionState, katanaContext)
@@ -43,6 +43,9 @@ case class KatanaHiveDDLRule(getOrCreateKatanaContext: SparkSession => KatanaCon
       KatanaShowPartitions(showPartitions, hiveCatalogs)(katanaContext)
     case showTableProperties: ShowTablePropertiesCommand =>
       KatanaShowTableProperties(showTableProperties, hiveCatalogs)(katanaContext)
+    case showFunctions: ShowFunctionsCommand =>
+      KatanaShowFunctions(showFunctions, hiveCatalogs)(katanaContext)
+
 
     /**
      * Support for Create command

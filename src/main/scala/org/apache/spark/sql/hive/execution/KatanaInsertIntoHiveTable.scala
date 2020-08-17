@@ -29,7 +29,9 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
                                      ifPartitionNotExists: Boolean,
                                      outputColumnNames: Seq[String])
                                     (@transient private val catalog: SessionCatalog,
-                                     @transient private val sessionState: SessionState) extends SaveAsHiveFile {
+                                     @transient private val catalogName: Option[String],
+                                     @transient private val sessionState: SessionState)
+  extends KatanaSaveAsHiveFile {
 
   /**
    * Inserts all the rows in the table into Hive.  Row objects are properly serialized with the
@@ -53,7 +55,7 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
       hiveQlTable.getMetadata
     )
     val tableLocation = hiveQlTable.getDataLocation
-    val tmpLocation = getExternalTmpPath(sparkSession, hadoopConf, tableLocation)
+    val tmpLocation = getExternalTmpPath(catalogName, sparkSession, hadoopConf, tableLocation)
     try {
       processInsert(sparkSession, externalCatalog, hadoopConf, tableDesc, tmpLocation, child)
     } finally {

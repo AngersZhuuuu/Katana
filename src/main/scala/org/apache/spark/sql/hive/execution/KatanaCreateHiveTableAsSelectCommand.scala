@@ -18,6 +18,7 @@ case class KatanaCreateHiveTableAsSelectCommand(tableDesc: CatalogTable,
                                                 outputColumnNames: Seq[String],
                                                 mode: SaveMode)
                                                (@transient private val catalog: SessionCatalog,
+                                               @transient private val catalogName: Option[String],
                                                @transient private val sessionState: SessionState) extends DataWritingCommand {
 
   private val tableIdentifier = tableDesc.identifier
@@ -41,7 +42,7 @@ case class KatanaCreateHiveTableAsSelectCommand(tableDesc: CatalogTable,
         query,
         overwrite = false,
         ifPartitionNotExists = false,
-        outputColumnNames = outputColumnNames)(catalog, sessionState)
+        outputColumnNames = outputColumnNames)(catalog, catalogName, sessionState)
         .run(sparkSession, child)
     } else {
       // TODO ideally, we should get the output data ready first and then
@@ -62,7 +63,7 @@ case class KatanaCreateHiveTableAsSelectCommand(tableDesc: CatalogTable,
           query,
           overwrite = true,
           ifPartitionNotExists = false,
-          outputColumnNames = outputColumnNames)(catalog, sessionState)
+          outputColumnNames = outputColumnNames)(catalog, catalogName, sessionState)
           .run(sparkSession, child)
       } catch {
         case NonFatal(e) =>

@@ -59,7 +59,7 @@ case class KatanaIdentifierParser(getOrCreateKatanaContext: SparkSession => Kata
 
   private val qualifyTableIdentifier: PartialFunction[LogicalPlan, LogicalPlan] = {
     case r@UnresolvedRelation(tableIdentifier) if needQualify(tableIdentifier) =>
-      r.copy(qualifyTableIdentifierInternal(tableIdentifier))
+      r.copy(tableIdentifier = qualifyTableIdentifierInternal(tableIdentifier))
     case i@InsertIntoTable(r@UnresolvedRelation(tableIdentifier), _, _, _, _)
       if needQualify(tableIdentifier) =>
       // When getting temp view, we leverage legacy catalog.

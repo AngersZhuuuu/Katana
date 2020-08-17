@@ -32,12 +32,12 @@ case class KatanaShowTables(delegate: ShowTablesCommand,
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, hiveCatalogs, sparkSession, katana)
     val catalogName = CatalogSchemaUtil.getCatalogName(catalog, hiveCatalogs)
-
+    val db = delegate.databaseName.getOrElse(catalog.getCurrentDatabase)
     if (delegate.partitionSpec.isEmpty) {
       // Show the information of tables.
       val tables =
-        delegate.tableIdentifierPattern.map(catalog.listTables(delegate.databaseName.get, _))
-          .getOrElse(catalog.listTables(delegate.databaseName.get))
+        delegate.tableIdentifierPattern.map(catalog.listTables(db, _))
+          .getOrElse(catalog.listTables(db))
       tables.map { tableIdent =>
         val database = tableIdent.database.getOrElse("")
         val tableName = tableIdent.table
@@ -54,7 +54,7 @@ case class KatanaShowTables(delegate: ShowTablesCommand,
       //
       // Note: tableIdentifierPattern should be non-empty, otherwise a [[ParseException]]
       // should have been thrown by the sql parser.
-      val tableIdent = TableIdentifier(delegate.tableIdentifierPattern.get, delegate.databaseName, delegate.catalog)
+      val tableIdent = TableIdentifier(delegate.tableIdentifierPattern.get, Some(db), delegate.catalog)
       val table = catalog.getTableMetadata(tableIdent).identifier
       val partition = catalog.getPartition(tableIdent, delegate.partitionSpec.get)
       val database = table.database.getOrElse("")
