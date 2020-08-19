@@ -25,8 +25,7 @@ case class KatanaHiveDDLRule(getOrCreateKatanaContext: SparkSession => KatanaCon
     case showDatabase: ShowDatabasesCommand =>
       KatanaShowDatabases(showDatabase)(katanaContext)
     case setDatabase: SetDatabaseCommand =>
-      val session = CatalogSchemaUtil.getSession(setDatabase.catalog, sparkSession, katanaContext)
-      KatanaSetDatabase(setDatabase)(session, katanaContext)
+      KatanaSetDatabase(setDatabase)(katanaContext)
     case showTables: ShowTablesCommand =>
       KatanaShowTables(showTables)(katanaContext)
     case showColumns: ShowColumnsCommand =>

@@ -17,19 +17,16 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable
 
 /**
-  * @author angers.zhu@gmail.com
-  * @date 2019/5/30 9:26
-  */
+ * @author angers.zhu@gmail.com
+ * @date 2019/5/30 9:26
+ */
 case class KatanaAnalyzeColumn(delegate: AnalyzeColumnCommand)
-                              (@transient private val session: SparkSession,
-                               @transient private val katana: KatanaContext) extends RunnableCommand {
+                              (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.tableIdent.catalog,
-        sparkSession,
-        katana)
+    val session = CatalogSchemaUtil.getSession(delegate.tableIdent.catalog, sparkSession, katana)
+    val catalog = session.sessionState.catalog
 
     val tableMeta = catalog.getTableMetadata(delegate.tableIdent)
     if (tableMeta.tableType == CatalogTableType.VIEW) {
@@ -53,10 +50,10 @@ case class KatanaAnalyzeColumn(delegate: AnalyzeColumnCommand)
   }
 
   /**
-    * Compute stats for the given columns.
-    *
-    * @return (row count, map from column name to CatalogColumnStats)
-    */
+   * Compute stats for the given columns.
+   *
+   * @return (row count, map from column name to CatalogColumnStats)
+   */
   private def computeColumnStats(sparkSession: SparkSession,
                                  tableIdent: TableIdentifier,
                                  columnNames: Seq[String]): (Long, Map[String, CatalogColumnStat]) = {
@@ -167,15 +164,15 @@ case class KatanaAnalyzeColumn(delegate: AnalyzeColumnCommand)
   }
 
   /**
-    * Constructs an expression to compute column statistics for a given column.
-    *
-    * The expression should create a single struct column with the following schema:
-    * distinctCount: Long, min: T, max: T, nullCount: Long, avgLen: Long, maxLen: Long,
-    * distinctCountsForIntervals: Array[Long]
-    *
-    * Together with [[rowToColumnStat]], this function is used to create [[ColumnStat]] and
-    * as a result should stay in sync with it.
-    */
+   * Constructs an expression to compute column statistics for a given column.
+   *
+   * The expression should create a single struct column with the following schema:
+   * distinctCount: Long, min: T, max: T, nullCount: Long, avgLen: Long, maxLen: Long,
+   * distinctCountsForIntervals: Array[Long]
+   *
+   * Together with [[rowToColumnStat]], this function is used to create [[ColumnStat]] and
+   * as a result should stay in sync with it.
+   */
   private def statExprs(
                          col: Attribute,
                          conf: SQLConf,

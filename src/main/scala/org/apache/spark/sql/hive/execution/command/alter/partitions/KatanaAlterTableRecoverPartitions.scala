@@ -20,8 +20,7 @@ import scala.collection.parallel.ForkJoinTaskSupport
   * @date 2019/5/30 18:21
   */
 case class KatanaAlterTableRecoverPartitions(delegate: AlterTableRecoverPartitionsCommand)
-                                            (@transient private val session: SparkSession,
-                                             @transient private val katana: KatanaContext) extends RunnableCommand {
+                                            (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   // These are list of statistics that can be collected quickly without requiring a scan of the data
   // see https://github.com/apache/hive/blob/master/
@@ -48,11 +47,8 @@ case class KatanaAlterTableRecoverPartitions(delegate: AlterTableRecoverPartitio
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.tableName.catalog,
-        sparkSession,
-        katana)
+    val session = CatalogSchemaUtil.getSession(delegate.tableName.catalog, sparkSession, katana)
+    val catalog = session.sessionState.catalog
 
     val table = catalog.getTableMetadata(delegate.tableName)
     val tableIdentWithDB = table.identifier.quotedString

@@ -26,11 +26,7 @@ case class KatanaDescColumns(delegate: DescribeColumnCommand)
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.table.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.table.catalog, sparkSession, katana)
 
     val resolver = sparkSession.sessionState.conf.resolver
 

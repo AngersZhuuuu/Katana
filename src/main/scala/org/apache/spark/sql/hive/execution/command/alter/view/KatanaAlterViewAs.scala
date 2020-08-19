@@ -13,18 +13,15 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
   * @date 2019/5/30 17:22
   */
 case class KatanaAlterViewAs(delegate: AlterViewAsCommand)
-                            (@transient private val katana: KatanaContext) extends RunnableCommand {
+                            (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
 
   import ViewHelper._
 
   override protected def innerChildren: Seq[QueryPlan[_]] = Seq(delegate.query)
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.name.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.name.catalog, sparkSession, katana)
 
     // If the plan cannot be analyzed, throw an exception and don't proceed.
     val qe = sparkSession.sessionState.executePlan(delegate.query)

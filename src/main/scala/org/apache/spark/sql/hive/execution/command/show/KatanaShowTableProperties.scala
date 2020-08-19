@@ -22,11 +22,7 @@ case class KatanaShowTableProperties(delegate: ShowTablePropertiesCommand)
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.table.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.table.catalog, sparkSession, katana)
 
     if (catalog.isTemporaryTable(delegate.table)) {
       Seq.empty[Row]

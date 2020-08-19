@@ -1,7 +1,7 @@
 package org.apache.spark.sql.hive.execution
 
 import org.apache.spark.sql.{AnalysisException, Row, SaveMode, SparkSession}
-import org.apache.spark.sql.catalyst.catalog.{CatalogTable, SessionCatalog}
+import org.apache.spark.sql.catalyst.catalog.CatalogTable
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.command.DataWritingCommand
@@ -17,15 +17,15 @@ case class KatanaCreateHiveTableAsSelectCommand(tableDesc: CatalogTable,
                                                 query: LogicalPlan,
                                                 outputColumnNames: Seq[String],
                                                 mode: SaveMode)
-                                               (@transient private val session: SparkSession,
-                                                @transient private val katanaContext: KatanaContext)
+                                               (@transient private val katana: KatanaContext)
   extends DataWritingCommand {
 
   private val tableIdentifier = tableDesc.identifier
-  private val catalogName = CatalogSchemaUtil.getCatalogName(session.sessionState.catalog, katanaContext)
 
   override def run(sparkSession: SparkSession, child: SparkPlan): Seq[Row] = {
+    val session = CatalogSchemaUtil.getSession(tableDesc.identifier.catalog, sparkSession, katana)
     val catalog = session.sessionState.catalog
+
     if (catalog.tableExists(tableIdentifier)) {
       assert(mode != SaveMode.Overwrite,
         s"Expect the table $tableIdentifier has been dropped when the save mode is Overwrite")
@@ -44,7 +44,7 @@ case class KatanaCreateHiveTableAsSelectCommand(tableDesc: CatalogTable,
         query,
         overwrite = false,
         ifPartitionNotExists = false,
-        outputColumnNames = outputColumnNames)(catalog, catalogName, session)
+        outputColumnNames = outputColumnNames)(katana)
         .run(sparkSession, child)
     } else {
       // TODO ideally, we should get the output data ready first and then
@@ -65,7 +65,7 @@ case class KatanaCreateHiveTableAsSelectCommand(tableDesc: CatalogTable,
           query,
           overwrite = true,
           ifPartitionNotExists = false,
-          outputColumnNames = outputColumnNames)(catalog, catalogName, session)
+          outputColumnNames = outputColumnNames)(katana)
           .run(sparkSession, child)
       } catch {
         case NonFatal(e) =>

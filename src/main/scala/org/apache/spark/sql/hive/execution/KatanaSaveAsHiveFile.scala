@@ -96,10 +96,19 @@ private[hive] trait KatanaSaveAsHiveFile extends DataWritingCommand {
       options = Map.empty)
   }
 
+  /**
+   * Rewrite SaveHiveAsFile's method, in this method, we get stagingdir/scrathdir form
+   * Katana external catalog's configuration. This method only used by KatanaInsertIntoDir
+   * to support write data in to different hdfs path across cluster
+   * @param sparkSession SparkSession
+   * @param hadoopConf
+   * @param path the path of target will insert data into
+   * @return
+   */
   protected def getExternalTmpPath(
       sparkSession: SparkSession,
       hadoopConf: Configuration,
-      path: Path): Path = {
+      path: Path)(katana: KatanaContext): Path = {
     import org.apache.spark.sql.hive.client.hive._
 
     // Before Hive 1.1, when inserting into a table, Hive will create the staging directory under
@@ -140,7 +149,7 @@ private[hive] trait KatanaSaveAsHiveFile extends DataWritingCommand {
       catalogName: Option[String],
       sparkSession: SparkSession,
       hadoopConf: Configuration,
-      path: Path): Path = {
+      path: Path)(katana: KatanaContext): Path = {
     import org.apache.spark.sql.hive.client.hive._
 
     // Before Hive 1.1, when inserting into a table, Hive will create the staging directory under
@@ -163,8 +172,8 @@ private[hive] trait KatanaSaveAsHiveFile extends DataWritingCommand {
     val externalCatalog = sparkSession.sharedState.externalCatalog
     val hiveVersion = externalCatalog.unwrapped.asInstanceOf[HiveExternalCatalog].client.version
 
-    val stagingDir = KatanaContext.stagingDir(catalogName).getOrElse(".hive-staging")
-    val scratchDir = KatanaContext.scratchDir(catalogName).getOrElse("/tmp/hive")
+    val stagingDir = katana.stagingDir(catalogName).getOrElse(".hive-staging")
+    val scratchDir = katana.scratchDir(catalogName).getOrElse("/tmp/hive")
 
     if (hiveVersionsUsingOldExternalTempPath.contains(hiveVersion)) {
       oldVersionExternalTempPath(path, hadoopConf, scratchDir)

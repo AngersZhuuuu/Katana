@@ -12,12 +12,12 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
 
 /**
-  * @author angers.zhu@gmail.com
-  * @date 2019/5/30 9:19
-  */
+ * @author angers.zhu@gmail.com
+ * @date 2019/5/30 9:19
+ */
 case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand)
-                                 (@transient private val session: SparkSession,
-                                  @transient private val katana: KatanaContext) extends RunnableCommand {
+                                 (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
   private def getPartitionSpec(table: CatalogTable): Option[TablePartitionSpec] = {
     val normalizedPartitionSpec =
       PartitioningUtils.normalizePartitionSpec(delegate.partitionSpec, table.partitionColumnNames,
@@ -47,11 +47,8 @@ case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand)
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.tableIdent.catalog,
-        sparkSession,
-        katana)
+    val session = CatalogSchemaUtil.getSession(delegate.tableIdent.catalog, sparkSession, katana)
+    val catalog = session.sessionState.catalog
 
     val tableMeta = catalog.getTableMetadata(delegate.tableIdent)
     if (tableMeta.tableType == CatalogTableType.VIEW) {

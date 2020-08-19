@@ -13,6 +13,7 @@ import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.hive.HiveShim.{ShimFileSinkDesc => FileSinkDesc}
 import org.apache.spark.sql.hive.client.HiveClientImpl
 import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
+import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 
 /**
  * @author angers.zhu@gmail.com
@@ -27,10 +28,9 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
                                      overwrite: Boolean,
                                      ifPartitionNotExists: Boolean,
                                      outputColumnNames: Seq[String])
-                                    (@transient private val catalog: SessionCatalog,
-                                     @transient private val catalogName: Option[String],
-                                     @transient private val session: SparkSession)
+                                    (@transient private val katana: KatanaContext)
   extends KatanaSaveAsHiveFile {
+
 
   /**
    * Inserts all the rows in the table into Hive.  Row objects are properly serialized with the
@@ -38,6 +38,10 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
    * `org.apache.hadoop.mapred.OutputFormat` provided by the table definition.
    */
   override def run(sparkSession: SparkSession, child: SparkPlan): Seq[Row] = {
+    val session = CatalogSchemaUtil.getSession(table.identifier.catalog, sparkSession, katana)
+    val catalog = session.sessionState.catalog
+    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, katana)
+
     val externalCatalog = catalog.externalCatalog
     val hadoopConf = session.sessionState.newHadoopConf()
 
@@ -54,7 +58,7 @@ case class KatanaInsertIntoHiveTable(table: CatalogTable,
       hiveQlTable.getMetadata
     )
     val tableLocation = hiveQlTable.getDataLocation
-    val tmpLocation = getExternalTmpPath(catalogName, sparkSession, hadoopConf, tableLocation)
+    val tmpLocation = getExternalTmpPath(catalogName, sparkSession, hadoopConf, tableLocation)(katana)
     try {
       processInsert(sparkSession, externalCatalog, hadoopConf, tableDesc, tmpLocation, child)
     } finally {

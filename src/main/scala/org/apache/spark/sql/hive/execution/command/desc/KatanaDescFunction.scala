@@ -30,12 +30,7 @@ case class KatanaDescFunction(delegate: DescribeFunctionCommand)
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     // Hard code "<>", "!=", "between", and "case" for now as there is no corresponding functions.
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.functionName.catalog,
-        sparkSession,
-        katana)
-
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.functionName.catalog, sparkSession, katana)
 
     delegate.functionName.funcName.toLowerCase(Locale.ROOT) match {
       case "<>" =>

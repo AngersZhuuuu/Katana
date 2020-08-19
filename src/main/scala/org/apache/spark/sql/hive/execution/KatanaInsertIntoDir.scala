@@ -14,12 +14,14 @@ import org.apache.spark.sql.util.SchemaUtils
 import org.apache.spark.SparkException
 import org.apache.spark.sql.catalyst.catalog.{CatalogStorageFormat, CatalogTable}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.hive.KatanaContext
 
 case class KatanaInsertIntoDir(isLocal: Boolean,
-                          storage: CatalogStorageFormat,
-                          query: LogicalPlan,
-                          overwrite: Boolean,
-                          outputColumnNames: Seq[String])
+                               storage: CatalogStorageFormat,
+                               query: LogicalPlan,
+                               overwrite: Boolean,
+                               outputColumnNames: Seq[String])
+                              (@transient private val katana: KatanaContext)
   extends KatanaSaveAsHiveFile {
 
   override def run(sparkSession: SparkSession, child: SparkPlan): Seq[Row] = {
@@ -62,7 +64,7 @@ case class KatanaInsertIntoDir(isLocal: Boolean,
     }
 
     // The temporary path must be a HDFS path, not a local path.
-    val tmpPath = getExternalTmpPath(sparkSession, hadoopConf, qualifiedPath)
+    val tmpPath = getExternalTmpPath(sparkSession, hadoopConf, qualifiedPath)(katana)
     val fileSinkConf = new org.apache.spark.sql.hive.HiveShim.ShimFileSinkDesc(
       tmpPath.toString, tableDesc, false)
     logInfo(s"Insert into tmp path ${tmpPath.toString}")

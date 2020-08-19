@@ -14,11 +14,7 @@ case class KatanaDropFunction(delegate: DropFunctionCommand)
                              (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, sparkSession, katana)
 
     if (delegate.isTemp) {
       if (delegate.databaseName.isDefined) {

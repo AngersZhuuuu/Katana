@@ -15,14 +15,11 @@ import scala.util.control.NonFatal
   * @date 2019/5/30 10:11
   */
 case class KatanaTruncateTable(delegate: TruncateTableCommand)
-                              (@transient private val katana: KatanaContext) extends RunnableCommand {
+                              (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.tableName.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, sparkSession, katana)
 
     val table = catalog.getTableMetadata(delegate.tableName)
     val tableIdentWithDB = table.identifier.quotedString

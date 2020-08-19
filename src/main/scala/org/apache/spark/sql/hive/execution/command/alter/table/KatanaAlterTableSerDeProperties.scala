@@ -16,11 +16,7 @@ case class KatanaAlterTableSerDeProperties(delegate: AlterTableSerDePropertiesCo
     "ALTER TABLE attempted to set neither serde class name nor serde properties")
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.tableName.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, sparkSession, katana)
 
     val table = catalog.getTableMetadata(delegate.tableName)
     DDLUtils.verifyAlterTableType(catalog, table, isView = false)

@@ -12,7 +12,8 @@ import org.apache.spark.sql.types.{BooleanType, StringType}
  * @date 2019/5/28 18:13
  */
 case class KatanaShowTables(delegate: ShowTablesCommand)
-                           (@transient private val katana: KatanaContext) extends RunnableCommand {
+                           (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
   override val output: Seq[Attribute] = {
     val tableExtendedInfo = if (delegate.isExtended) {
       AttributeReference("information", StringType, nullable = false)() :: Nil

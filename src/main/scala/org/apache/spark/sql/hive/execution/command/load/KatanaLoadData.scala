@@ -14,15 +14,11 @@ import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
   * @date 2019/5/30 10:45
   */
 case class KatanaLoadData(delegate: LoadDataCommand)
-                         (@transient private val session: SparkSession,
-                          @transient private val katana: KatanaContext) extends RunnableCommand {
+                         (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.table.catalog,
-        sparkSession,
-        katana)
+    val session = CatalogSchemaUtil.getSession(delegate.table.catalog, sparkSession, katana)
+    val catalog = session.sessionState.catalog
     val targetTable = catalog.getTableMetadata(delegate.table)
     val tableIdentifierWithDB = targetTable.identifier.quotedString
 

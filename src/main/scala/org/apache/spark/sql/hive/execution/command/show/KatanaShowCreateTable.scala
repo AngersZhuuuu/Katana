@@ -22,11 +22,7 @@ case class KatanaShowCreateTable(delegate: ShowCreateTableCommand)
   )
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.table.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.table.catalog, sparkSession, katana)
 
     val tableMetadata = catalog.getTableMetadata(delegate.table)
 

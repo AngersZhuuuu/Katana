@@ -12,17 +12,8 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 case class KatanaCreateTableLike(delegate: CreateTableLikeCommand)
                                 (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalogTarget =
-      CatalogSchemaUtil.getCatalog(
-        delegate.targetTable.catalog,
-        sparkSession,
-        katana)
-
-    val catalogSource =
-      CatalogSchemaUtil.getCatalog(
-        delegate.sourceTable.catalog,
-        sparkSession,
-        katana)
+    val catalogTarget = CatalogSchemaUtil.getCatalog(delegate.targetTable.catalog, sparkSession, katana)
+    val catalogSource = CatalogSchemaUtil.getCatalog(delegate.sourceTable.catalog, sparkSession, katana)
 
     val sourceTableDesc = catalogSource.getTempViewOrPermanentTableMetadata(delegate.sourceTable)
 

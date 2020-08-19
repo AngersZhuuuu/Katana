@@ -11,11 +11,7 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 case class KatanaAlterTableUnsetProperties(delegate: AlterTableUnsetPropertiesCommand)
                                           (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.tableName.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, sparkSession, katana)
 
     val table = catalog.getTableMetadata(delegate.tableName)
     DDLUtils.verifyAlterTableType(catalog, table, delegate.isView)

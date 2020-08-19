@@ -11,11 +11,7 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 case class KatanaCreateTable(delegate: CreateTableCommand)
                             (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.table.identifier.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.table.identifier.catalog, sparkSession, katana)
 
     catalog.createTable(delegate.table, delegate.ignoreIfExists)
     Seq.empty[Row]

@@ -6,13 +6,13 @@ import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeSet, Expre
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.{FilterExec, ProjectExec, SparkPlan}
-import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
+import org.apache.spark.sql.hive.KatanaContext
 import org.apache.spark.sql.hive.execution.KatanaHiveTableScanExec
 
 /**
-  * @author angers.zhu@gmail.com
-  * @date 2019/5/28 13:30
-  */
+ * @author angers.zhu@gmail.com
+ * @date 2019/5/28 13:30
+ */
 case class KatanaHiveStrategies(getOrCreateKatanaContext: SparkSession => KatanaContext)
                                (sparkSession: SparkSession) extends Strategy {
 
@@ -56,16 +56,11 @@ case class KatanaHiveStrategies(getOrCreateKatanaContext: SparkSession => Katana
         !predicate.references.isEmpty &&
           predicate.references.subsetOf(partitionKeyIds)
       }
-      val catalog =
-        CatalogSchemaUtil.getCatalog(
-          relation.tableMeta.identifier.catalog,
-          sparkSession,
-          katanaContext)
       pruneFilterProject(
         projectList,
         otherPredicates,
         identity[Seq[Expression]],
-        KatanaHiveTableScanExec(_, relation, pruningPredicates)(sparkSession, catalog)) :: Nil
+        KatanaHiveTableScanExec(_, relation, pruningPredicates)(sparkSession, katanaContext)) :: Nil
     case _ =>
       Nil
   }

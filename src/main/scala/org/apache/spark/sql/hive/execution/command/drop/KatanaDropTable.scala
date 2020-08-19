@@ -14,11 +14,7 @@ import scala.util.control.NonFatal
 case class KatanaDropTable(delegate: DropTableCommand)
                           (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.tableName.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, sparkSession, katana)
 
     val isTempView = catalog.isTemporaryTable(delegate.tableName)
 

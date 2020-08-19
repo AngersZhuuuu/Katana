@@ -34,49 +34,45 @@ case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => Katana
 
     //      在 Analyze 中已经处理过InsertInto 的Relation， 故此处不需要处理
     case InsertIntoHiveTable(tableMeta, partition, query, overwrite, ifPartitionNotExists, outputColumnNames) =>
-      val session = CatalogSchemaUtil.getSession(tableMeta.identifier.catalog, sparkSession, katanaContext)
-      val catalogName = CatalogSchemaUtil.getCatalogName(session.sessionState.catalog, katanaContext)
       val katanaPlan = KatanaInsertIntoHiveTable(tableMeta, partition, query, overwrite,
-        ifPartitionNotExists, outputColumnNames)(session.sessionState.catalog, catalogName, session)
+        ifPartitionNotExists, outputColumnNames)(katanaContext)
       DataWritingCommandExec(katanaPlan, planLater(katanaPlan.query)) :: Nil
 
     case InsertIntoHiveDirCommand(isLocal, storage, query, overwrite, outputColumnNames) =>
-      val katanaPlan = KatanaInsertIntoDir(isLocal, storage, query, overwrite, outputColumnNames)
+      val katanaPlan = KatanaInsertIntoDir(isLocal, storage, query, overwrite, outputColumnNames)(katanaContext)
       DataWritingCommandExec(katanaPlan, planLater(katanaPlan.query)) :: Nil
 
     /**
      * Create DDL
      */
     case CreateHiveTableAsSelectCommand(tableDesc, query, outputColumnNames, mode) =>
-      val session = CatalogSchemaUtil.getSession(tableDesc.identifier.catalog, sparkSession, katanaContext)
-      val katanaPlan = KatanaCreateHiveTableAsSelectCommand(tableDesc, query, outputColumnNames, mode)(session, katanaContext)
+      val katanaPlan = KatanaCreateHiveTableAsSelectCommand(tableDesc, query, outputColumnNames, mode)(katanaContext)
       DataWritingCommandExec(katanaPlan, planLater(katanaPlan.query)) :: Nil
 
-    case createTable: CreateTableCommand => ExecutedCommandExec(KatanaCreateTable(createTable)(katanaContext)) :: Nil
-    case createTableLike: CreateTableLikeCommand => ExecutedCommandExec(KatanaCreateTableLike(createTableLike)(katanaContext)) :: Nil
-    case createView: CreateViewCommand => ExecutedCommandExec(KatanaCreateView(createView)(katanaContext)) :: Nil
+    case createTable: CreateTableCommand =>
+      ExecutedCommandExec(KatanaCreateTable(createTable)(katanaContext)) :: Nil
+    case createTableLike: CreateTableLikeCommand =>
+      ExecutedCommandExec(KatanaCreateTableLike(createTableLike)(katanaContext)) :: Nil
+    case createView: CreateViewCommand =>
+      ExecutedCommandExec(KatanaCreateView(createView)(katanaContext)) :: Nil
 
 
     /**
      * LOAD DATA [LOCAL] INPATH
      */
     case loadData: LoadDataCommand =>
-      val session = CatalogSchemaUtil.getSession(loadData.table.catalog, sparkSession, katanaContext)
-      ExecutedCommandExec(KatanaLoadData(loadData)(session, katanaContext)) :: Nil
+      ExecutedCommandExec(KatanaLoadData(loadData)(katanaContext)) :: Nil
 
 
     /**
      * Analyze Command
      */
     case analyzeTable: AnalyzeTableCommand =>
-      val session = CatalogSchemaUtil.getSession(analyzeTable.tableIdent.catalog, sparkSession, katanaContext)
-      ExecutedCommandExec(KatanaAnalyzeTable(analyzeTable)(session, katanaContext)) :: Nil
+      ExecutedCommandExec(KatanaAnalyzeTable(analyzeTable)(katanaContext)) :: Nil
     case analyzePartition: AnalyzePartitionCommand =>
-      val sessiom = CatalogSchemaUtil.getSession(analyzePartition.tableIdent.catalog, sparkSession, katanaContext)
-      ExecutedCommandExec(KatanaAnalyzePartition(analyzePartition)(sessiom, katanaContext)) :: Nil
+      ExecutedCommandExec(KatanaAnalyzePartition(analyzePartition)(katanaContext)) :: Nil
     case analyzeColumn: AnalyzeColumnCommand =>
-      val session = CatalogSchemaUtil.getSession(analyzeColumn.tableIdent.catalog, sparkSession, katanaContext)
-      ExecutedCommandExec(KatanaAnalyzeColumn(analyzeColumn)(session, katanaContext)) :: Nil
+      ExecutedCommandExec(KatanaAnalyzeColumn(analyzeColumn)(katanaContext)) :: Nil
 
 
     /**
@@ -99,8 +95,7 @@ case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => Katana
     case alterTableSerDeProperties: AlterTableSerDePropertiesCommand =>
       ExecutedCommandExec(KatanaAlterTableSerDeProperties(alterTableSerDeProperties)(katanaContext)) :: Nil
     case alterTableSetLocation: AlterTableSetLocationCommand =>
-      val session = CatalogSchemaUtil.getSession(alterTableSetLocation.tableName.catalog, sparkSession, katanaContext)
-      ExecutedCommandExec(KatanaAlterTableSetLocation(alterTableSetLocation)(session, katanaContext)) :: Nil
+      ExecutedCommandExec(KatanaAlterTableSetLocation(alterTableSetLocation)(katanaContext)) :: Nil
     case alterTableSetProperties: AlterTableSetPropertiesCommand =>
       ExecutedCommandExec(KatanaAlterTableSetProperties(alterTableSetProperties)(katanaContext)) :: Nil
     case alterTableUnsetProperties: AlterTableUnsetPropertiesCommand =>
@@ -108,21 +103,17 @@ case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => Katana
 
     //      PARTITION
     case alterTableAddPartition: AlterTableAddPartitionCommand =>
-      val session = CatalogSchemaUtil.getSession(alterTableAddPartition.tableName.catalog, sparkSession, katanaContext)
-      ExecutedCommandExec(KatanaAlterTableAddPartition(alterTableAddPartition)(session, katanaContext)) :: Nil
+      ExecutedCommandExec(KatanaAlterTableAddPartition(alterTableAddPartition)(katanaContext)) :: Nil
     case alterTableDropPartition: AlterTableDropPartitionCommand =>
-      val session = CatalogSchemaUtil.getSession(alterTableDropPartition.tableName.catalog, sparkSession, katanaContext)
-      ExecutedCommandExec(KatanaAlterTableDropPartition(alterTableDropPartition)(session, katanaContext)) :: Nil
+      ExecutedCommandExec(KatanaAlterTableDropPartition(alterTableDropPartition)(katanaContext)) :: Nil
     case alterTableRecoverPartitions: AlterTableRecoverPartitionsCommand =>
-      val session = CatalogSchemaUtil.getSession(alterTableRecoverPartitions.tableName.catalog, sparkSession, katanaContext)
-      ExecutedCommandExec(KatanaAlterTableRecoverPartitions(alterTableRecoverPartitions)(session, katanaContext)) :: Nil
+      ExecutedCommandExec(KatanaAlterTableRecoverPartitions(alterTableRecoverPartitions)(katanaContext)) :: Nil
     case alterTableRenamePartition: AlterTableRenamePartitionCommand =>
       ExecutedCommandExec(KatanaAlterTableRenamePartition(alterTableRenamePartition)(katanaContext)) :: Nil
 
     //      COLUMNS
     case alterTableAddColumns: AlterTableAddColumnsCommand =>
-      val session = CatalogSchemaUtil.getSession(alterTableAddColumns.table.catalog, sparkSession, katanaContext)
-      ExecutedCommandExec(KatanaAlterTableAddColumns(alterTableAddColumns)(session, katanaContext)) :: Nil
+      ExecutedCommandExec(KatanaAlterTableAddColumns(alterTableAddColumns)(katanaContext)) :: Nil
     case alterTableChangeColumn: AlterTableChangeColumnCommand =>
       ExecutedCommandExec(KatanaAlterTableChangeColumn(alterTableChangeColumn)(katanaContext)) :: Nil
 

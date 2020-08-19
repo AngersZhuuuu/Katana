@@ -20,11 +20,7 @@ case class KatanaAlterTableRename(delegate: AlterTableRenameCommand)
       throw new RuntimeException("Katana can't rename table between different catalog")
     }
 
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.oldName.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.oldName.catalog, sparkSession, katana)
 
     // If this is a temp view, just rename the view.
     // Otherwise, if this is a real table, we also need to uncache and invalidate the table.

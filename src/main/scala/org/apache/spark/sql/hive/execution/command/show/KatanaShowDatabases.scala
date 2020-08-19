@@ -34,7 +34,7 @@ case class KatanaShowDatabases(delegate: ShowDatabasesCommand)
       val defaultCatalog = sparkSession.sessionState.catalog
       val defaultDatabases =
         delegate.databasePattern.map(defaultCatalog.listDatabases).getOrElse(defaultCatalog.listDatabases())
-          .map(KatanaContext.INTERNAL_HMS_NAME -> _)
+          .map(katana.INTERNAL_HMS_NAME -> _)
 
       // Current hive catalog map have contain internal hive catalog
       val externalDatabases: Seq[(String, String)] =

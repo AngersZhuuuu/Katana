@@ -36,11 +36,14 @@ case class KatanaHiveTableScanExec(requestedAttributes: Seq[Attribute],
                                   relation: HiveTableRelation,
                                   partitionPruningPred: Seq[Expression])(
                                    @transient private val sparkSession: SparkSession,
-                                   @transient private val katanaCatalog: SessionCatalog)
+                                   @transient private val katana: KatanaContext)
   extends LeafExecNode with CastSupport {
 
   require(partitionPruningPred.isEmpty || relation.isPartitioned,
     "Partition pruning predicates only supported for partitioned tables.")
+
+  val catalog = CatalogSchemaUtil.getCatalog(relation.tableMeta.identifier.catalog, sparkSession, katana)
+
 
   override def conf: SQLConf = sparkSession.sessionState.conf
 
@@ -153,11 +156,11 @@ case class KatanaHiveTableScanExec(requestedAttributes: Seq[Attribute],
         val normalizedFilters = partitionPruningPred.map(_.transform {
           case a: AttributeReference => originalAttributes(a)
         })
-        katanaCatalog.listPartitionsByFilter(
+        catalog.listPartitionsByFilter(
           relation.tableMeta.identifier,
           normalizedFilters)
       } else {
-        katanaCatalog.listPartitions(relation.tableMeta.identifier)
+        catalog.listPartitions(relation.tableMeta.identifier)
       }
     prunedPartitions.map(HiveClientImpl.toHivePartition(_, hiveQlTable))
   }
@@ -192,7 +195,7 @@ case class KatanaHiveTableScanExec(requestedAttributes: Seq[Attribute],
     KatanaHiveTableScanExec(
       requestedAttributes.map(QueryPlan.normalizeExprId(_, input)),
       relation.canonicalized.asInstanceOf[HiveTableRelation],
-      QueryPlan.normalizePredicates(partitionPruningPred, input))(sparkSession, katanaCatalog)
+      QueryPlan.normalizePredicates(partitionPruningPred, input))(sparkSession, katana)
   }
 
   override def otherCopyArgs: Seq[AnyRef] = Seq(sparkSession)

@@ -22,7 +22,7 @@ object CatalogSchemaUtil {
       case None =>
         katana.getActiveSession().getOrElse(sparkSession)
       case Some(str) =>
-        if (str == KatanaContext.INTERNAL_HMS_NAME) {
+        if (str == katana.INTERNAL_HMS_NAME) {
           sparkSession
         } else if (katana.sessions.contains(str)) {
           katana.sessions(str)
@@ -38,6 +38,6 @@ object CatalogSchemaUtil {
       katana.sessions
         .find(_._2.sessionState.catalog == catalog)
         .map(_._1)
-        .getOrElse(KatanaContext.INTERNAL_HMS_NAME))
+        .getOrElse(katana.INTERNAL_HMS_NAME))
   }
 }

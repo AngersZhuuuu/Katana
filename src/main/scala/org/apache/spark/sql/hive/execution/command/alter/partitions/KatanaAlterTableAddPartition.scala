@@ -12,15 +12,11 @@ import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
   * @date 2019/5/30 17:27
   */
 case class KatanaAlterTableAddPartition(delegate: AlterTableAddPartitionCommand)
-                                       (@transient private val session: SparkSession,
-                                        @transient private val katana: KatanaContext) extends RunnableCommand {
+                                       (@transient private val katana: KatanaContext) extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.tableName.catalog,
-        sparkSession,
-        katana)
+    val session = CatalogSchemaUtil.getSession(delegate.tableName.catalog, sparkSession, katana)
+    val catalog = session.sessionState.catalog
 
     val table = catalog.getTableMetadata(delegate.tableName)
     DDLUtils.verifyAlterTableType(catalog, table, isView = false)

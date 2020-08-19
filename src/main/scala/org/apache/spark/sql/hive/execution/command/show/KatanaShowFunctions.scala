@@ -18,10 +18,7 @@ case class KatanaShowFunctions(delegate: ShowFunctionsCommand)
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog = CatalogSchemaUtil.getCatalog(
-      delegate.catalog,
-      sparkSession,
-      katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, sparkSession, katana)
 
     // when db is empty, catalog must be empty and will use current sessionState,
     // if current sessionState is none, use default.

@@ -29,11 +29,7 @@ case class KatanaDescTable(delegate: DescribeTableCommand)
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val result = new ArrayBuffer[Row]
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.table.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.table.catalog, sparkSession, katana)
 
     if (catalog.isTemporaryTable(delegate.table)) {
       if (delegate.partitionSpec.nonEmpty) {

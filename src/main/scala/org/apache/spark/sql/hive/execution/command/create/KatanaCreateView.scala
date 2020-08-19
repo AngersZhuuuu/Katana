@@ -57,11 +57,7 @@ case class KatanaCreateView(delegate: CreateViewCommand)
         s"(num: `${analyzedPlan.output.length}`) does not match the number of column names " +
         s"specified by CREATE VIEW (num: `${delegate.userSpecifiedColumns.length}`).")
     }
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.name.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.name.catalog, sparkSession, katana)
 
     // When creating a permanent view, not allowed to reference temporary objects.
     // This should be called after `qe.assertAnalyzed()` (i.e., `child` can be resolved)

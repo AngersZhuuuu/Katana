@@ -31,11 +31,7 @@ case class KatanaCreateFunction(delegate: CreateFunctionCommand)
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, sparkSession, katana)
 
     val func = CatalogFunction(FunctionIdentifier(delegate.functionName, delegate.databaseName), delegate.className, delegate.resources)
     if (delegate.isTemp) {

@@ -11,7 +11,8 @@ import org.apache.spark.sql.types.StringType
   * @date 2019/5/29 10:12
   */
 case class KatanaShowColumns(delegate: ShowColumnsCommand)
-                            (@transient private val katana: KatanaContext) extends RunnableCommand {
+                            (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
   override val output: Seq[Attribute] = {
     AttributeReference("col_name", StringType, nullable = false)() :: Nil
   }

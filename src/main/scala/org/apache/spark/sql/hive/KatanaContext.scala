@@ -1,8 +1,13 @@
 package org.apache.spark.sql.hive
 
+import java.security.PrivilegedExceptionAction
 import java.util.concurrent._
 
+import org.apache.hadoop.hive.conf.HiveConf
 import org.apache.hadoop.hive.ql.metadata.Hive
+import org.apache.hadoop.hive.ql.session.SessionState
+import org.apache.hadoop.hive.shims.Utils
+import org.apache.hadoop.security.UserGroupInformation
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
@@ -17,92 +22,46 @@ import scala.concurrent.duration.Duration
  * @author angers.zhu@gmail.com
  * @date 2019/5/28 19:27
  */
-class KatanaContext(val sparkSession: SparkSession) extends Logging {
+class KatanaContext(val sparkSession: SparkSession, val user: String) extends Logging {
 
   import KatanaContext._
 
-  val sessionId = sparkSession.hashCode()
-  private var activeSparkSession:Option[SparkSession] = None
-  val sessions = HashMap.empty[String, SparkSession]
-
-  def initial(): Unit = {
-    init(sparkSession)
-    getOrCrateHiveCatalog()
-  }
-
-  def getActiveSession(): Option[SparkSession] = activeSparkSession
-
-  def setActiveSession(sparkSession: SparkSession):Unit = {
-    activeSparkSession = Some(sparkSession)
-  }
-
-  def getOrCrateHiveCatalog(): Unit = {
-    if (sessions.isEmpty) {
-      uriMap.keySet.foreach(schema => {
-        val url: String = uriMap(schema)
-        val warehouse: String = warehouseMap(schema)
-        val session = externalSparkSession(schema)
-        session.sparkContext.conf.set(HIVE_METASTORE_URIS, url)
-        session.sparkContext.conf.set(HIVE_METASTORE_WAREHOUSE, warehouse)
-        session.sparkContext.conf.set(WAREHOUSE_PATH, warehouse)
-        /**
-         * For lazy var, we should initial it before change SparkContext's configuration
-         */
-        val (newSession, _, _) = {
-          val newSession = session.newSession()
-          (newSession, newSession.sessionState, newSession.sessionState.catalog.asInstanceOf[HiveSessionCatalog])
-        }
-        session.sparkContext.conf.remove(HIVE_METASTORE_URIS)
-        session.sparkContext.conf.remove(HIVE_METASTORE_WAREHOUSE)
-        session.sparkContext.conf.remove(WAREHOUSE_PATH)
-
-        sessions.put(schema, newSession)
-      })
-    }
-  }
-}
-
-object KatanaContext extends Logging {
-
+  private val OBJECT_LOC = new Object()
   var INTERNAL_HMS_NAME = ""
-
-  private val INTERNAL_HMS_NAME_DEFAULT = "default"
-  private val HIVE_METASTORE_URIS = "hive.metastore.uris"
-  private val HIVE_METASTORE_WAREHOUSE = "hive.metastore.warehouse.dir"
-  private val HIVE_STAGING_DIR = "hive.exec.stagingdir"
-  private val HIVE_SCRATCH_DIR = "hive.exec.scratchdir"
-  private val WAREHOUSE_PATH = "spark.sql.warehouse.dir"
-  private val SPARK_PREFIX = "spark"
+  val sessionId = sparkSession.hashCode()
+  val ugi = if (UserGroupInformation.isSecurityEnabled) {
+    UserGroupInformation.createProxyUser(user, UserGroupInformation.getLoginUser)
+  } else {
+    UserGroupInformation.createRemoteUser(user)
+  }
 
   private var initialPool: Option[ThreadPoolExecutor] = None
-  private val OBJECT_LOC = new Object()
-  private val catalogToSparkSession = new ConcurrentHashMap[String, SparkSession]()
-  private val katanaConfigUrl: HashMap[String, String] = HashMap.empty[String, String]
-  private val katanaConfigWarehouse: HashMap[String, String] = HashMap.empty[String, String]
-  private val katanaConfigStagingDir: HashMap[String, String] = HashMap.empty[String, String]
-  private val katanaConfigScratchDirMap: HashMap[String, String] = HashMap.empty[String, String]
-
-  def uriMap: HashMap[String, String] = katanaConfigUrl
-
-  def warehouseMap: HashMap[String, String] = katanaConfigWarehouse
+  private var activeSparkSession: Option[SparkSession] = None
+  private val catalog2SparkSession = HashMap.empty[String, SparkSession]
+  private val catalog2Uris: HashMap[String, String] = HashMap.empty[String, String]
+  private val catalog2Warehouses: HashMap[String, String] = HashMap.empty[String, String]
+  private val catalog2StagingDirs: HashMap[String, String] = HashMap.empty[String, String]
+  private val catalog2ScratchDirs: HashMap[String, String] = HashMap.empty[String, String]
 
   def stagingDir(catalog: Option[String]): Option[String] = {
-    catalog.map(katanaConfigStagingDir.getOrElse(_, null))
+    catalog.map(catalog2StagingDirs.getOrElse(_, null))
   }
 
   def scratchDir(catalog: Option[String]): Option[String] = {
-    catalog.map(katanaConfigScratchDirMap.getOrElse(_, null))
+    catalog.map(catalog2ScratchDirs.getOrElse(_, null))
   }
 
-  def init(sparkSession: SparkSession): Unit = OBJECT_LOC.synchronized {
+  def sessions: HashMap[String, SparkSession] = {
+    catalog2SparkSession
+  }
+
+  def initial(): Unit = {
     if (initialPool.isEmpty) {
       logInfo("Initial External SparkSession")
       initialThreadPool(sparkSession.sparkContext.conf)
-      initialExternalSession(sparkSession)
+      initialExternalSession(sparkSession, ugi)
     }
   }
-
-  def externalSparkSession(schema: String): SparkSession = catalogToSparkSession.get(schema)
 
   def initialThreadPool(conf: SparkConf): Unit = {
     val katanaThreadNum = conf.getInt(KatanaConf.KATANA_INITIAL_POLL_THREAD, 3)
@@ -119,10 +78,11 @@ object KatanaContext extends Logging {
     initialPool.get.allowCoreThreadTimeOut(false)
   }
 
-  def initialExternalSession(sparkSession: SparkSession): Unit = OBJECT_LOC synchronized {
-    INTERNAL_HMS_NAME = sparkSession.conf.get(KatanaConf.INTERNAL_HMS_NAME, INTERNAL_HMS_NAME_DEFAULT)
+  def initialExternalSession(sparkSession: SparkSession,
+                             ugi: UserGroupInformation): Unit = OBJECT_LOC synchronized {
+    INTERNAL_HMS_NAME = sparkSession.sparkContext.conf.get(KatanaConf.INTERNAL_HMS_NAME, INTERNAL_HMS_NAME_DEFAULT)
     logInfo(s"Katana internal HMS alias is ${INTERNAL_HMS_NAME}")
-    val catalogConf = sparkSession.conf.get(KatanaConf.MULTI_HIVE_INSTANCE)
+    val catalogConf = sparkSession.sparkContext.conf.get(KatanaConf.MULTI_HIVE_INSTANCE)
     catalogConf.split("&&").foreach { instance =>
       val catalog = instance.split("->")(0)
       val url = instance.split("->")(1)
@@ -132,41 +92,67 @@ object KatanaContext extends Logging {
       if (warehouse == null) {
         throw new Exception("We can't use a external Hive SessionCatalog without Warehouse Configuration")
       } else {
-        val session: SparkSession = initialHiveCatalogAndSharedState(sparkSession.sparkContext, warehouse, url)
-        catalogToSparkSession.put(catalog, session)
-        katanaConfigUrl.put(catalog, url)
-        katanaConfigWarehouse.put(catalog, warehouse)
-        katanaConfigStagingDir.put(catalog, stagingDir)
-        katanaConfigScratchDirMap.put(catalog, scratch)
+        val session = initialHiveCatalogAndSharedState(sparkSession.sparkContext, catalog, warehouse, url, ugi)
+        catalog2SparkSession.put(catalog, session)
+        catalog2Uris.put(catalog, url)
+        catalog2Warehouses.put(catalog, warehouse)
+        catalog2StagingDirs.put(catalog, stagingDir)
+        catalog2ScratchDirs.put(catalog, scratch)
       }
     }
   }
 
-  def initialHiveCatalogAndSharedState(sparkContext: SparkContext, warehouse: String, url: String): SparkSession = {
+  def initialHiveCatalogAndSharedState(sparkContext: SparkContext,
+                                       catalog: String,
+                                       warehouse: String,
+                                       url: String,
+                                       ugi: UserGroupInformation): SparkSession = {
     val sparkSession = Promise[SparkSession]()
     val initialSparkSessionThread = new Runnable {
       override def run(): Unit = {
         sparkSession.trySuccess {
           logInfo("Init Katana SparkSession started.........")
-          logInfo(s"uri = $url")
-          logInfo(s"warehouse = $warehouse")
           val extensionConf = sparkContext.conf.get(StaticSQLConf.SPARK_SESSION_EXTENSIONS.key)
           sparkContext.conf.set(HIVE_METASTORE_URIS, url)
           sparkContext.conf.set(HIVE_METASTORE_WAREHOUSE, warehouse)
           sparkContext.conf.set(WAREHOUSE_PATH, warehouse)
           sparkContext.conf.remove(StaticSQLConf.SPARK_SESSION_EXTENSIONS.key)
 
-          Hive.closeCurrent()
-          logInfo("When init Katana SparkSession, close hive client")
-          val newSparkSession = new SparkSession(sparkContext)
-          newSparkSession.sharedState.externalCatalog
+          // Hive connection
+          val tokenSignature = sparkContext.conf.getOption("hive.metastore.token.signature")
 
-          newSparkSession.sessionState
-          newSparkSession.sessionState.catalog.asInstanceOf[HiveSessionCatalog]
+          val katanaTokenSignature = s"${catalog}_HiveTokenSignature"
+          sparkContext.conf.set("hive.metastore.token.signature", katanaTokenSignature)
+          sparkContext.hadoopConfiguration.set("hive.metastore.token.signature", katanaTokenSignature)
+
+          val hiveConf = new HiveConf()
+          hiveConf.set("hive.metastore.token.signature", "IllegalSignature")
+          hiveConf.set(HIVE_METASTORE_URIS, url)
+          hiveConf.set(HIVE_METASTORE_WAREHOUSE, warehouse)
+          val token = Hive.get(hiveConf).getDelegationToken(user, user)
+          Utils.setTokenStr(ugi, token, katanaTokenSignature)
+
+          logInfo(s"Init katana spark session with ugi = ${ugi}")
+          val newSparkSession = ugi.doAs(new PrivilegedExceptionAction[SparkSession] {
+            override def run(): SparkSession = {
+              Hive.closeCurrent()
+              SessionState.detachSession()
+              val nss = new SparkSession(sparkContext)
+              nss.sessionState.catalog.asInstanceOf[HiveSessionCatalog]
+              nss.sharedState.externalCatalog.unwrapped.asInstanceOf[HiveExternalCatalog].client
+              nss
+            }
+          })
+
           sparkContext.conf.remove(HIVE_METASTORE_URIS)
           sparkContext.conf.remove(HIVE_METASTORE_WAREHOUSE)
           sparkContext.conf.remove(WAREHOUSE_PATH)
           sparkContext.conf.set(StaticSQLConf.SPARK_SESSION_EXTENSIONS.key, extensionConf)
+
+          tokenSignature.map { t =>
+            sparkContext.conf.set("hive.metastore.token.signature", t)
+            sparkContext.hadoopConfiguration.set("hive.metastore.token.signature", t)
+          }
           logInfo("Init Katana SparkSession finished.........")
           newSparkSession
         }
@@ -175,4 +161,20 @@ object KatanaContext extends Logging {
     initialPool.get.execute(initialSparkSessionThread)
     Await.result(sparkSession.future, Duration(300, TimeUnit.SECONDS))
   }
+
+  def getActiveSession(): Option[SparkSession] = activeSparkSession
+
+  def setActiveSession(sparkSession: SparkSession): Unit = {
+    activeSparkSession = Some(sparkSession)
+  }
+}
+
+object KatanaContext extends Logging {
+  private val INTERNAL_HMS_NAME_DEFAULT = "default"
+  private val HIVE_METASTORE_URIS = "hive.metastore.uris"
+  private val HIVE_METASTORE_WAREHOUSE = "hive.metastore.warehouse.dir"
+  private val HIVE_STAGING_DIR = "hive.exec.stagingdir"
+  private val HIVE_SCRATCH_DIR = "hive.exec.scratchdir"
+  private val WAREHOUSE_PATH = "spark.sql.warehouse.dir"
+  private val SPARK_PREFIX = "spark"
 }

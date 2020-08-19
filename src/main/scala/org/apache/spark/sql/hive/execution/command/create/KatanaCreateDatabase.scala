@@ -12,10 +12,7 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 case class KatanaCreateDatabase(delegate: CreateDatabaseCommand)
                                (@transient private val katana: KatanaContext) extends RunnableCommand {
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog = CatalogSchemaUtil.getCatalog(
-      delegate.catalog,
-      sparkSession,
-      katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, sparkSession, katana)
     catalog.createDatabase(
       CatalogDatabase(
         delegate.databaseName,

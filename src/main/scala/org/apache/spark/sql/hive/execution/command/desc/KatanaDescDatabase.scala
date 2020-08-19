@@ -20,11 +20,9 @@ case class KatanaDescDatabase(delegate: DescribeDatabaseCommand)
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog = CatalogSchemaUtil.getCatalog(
-      delegate.catalog,
-      sparkSession,
-      katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.catalog, sparkSession, katana)
     val catalogName = CatalogSchemaUtil.getCatalogName(catalog, katana)
+
     val dbMetadata: CatalogDatabase =
       catalog.getDatabaseMetadata(delegate.databaseName)
     val result =
