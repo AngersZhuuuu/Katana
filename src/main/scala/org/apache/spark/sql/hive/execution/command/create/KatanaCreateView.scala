@@ -153,7 +153,10 @@ case class KatanaCreateView(
     * properties(e.g. view default database, view query output column names) and store them as
     * properties in the CatalogTable, and also creates the proper schema for the view.
     */
-  private def prepareTable(originTableIdentifier: TableIdentifier, session: SparkSession, analyzedPlan: LogicalPlan): CatalogTable = {
+  private def prepareTable(
+      originTableIdentifier: TableIdentifier,
+      session: SparkSession,
+      analyzedPlan: LogicalPlan): CatalogTable = {
     if (delegate.originalText.isEmpty) {
       throw new AnalysisException(
         "It is not allowed to create a persisted view from the Dataset API")

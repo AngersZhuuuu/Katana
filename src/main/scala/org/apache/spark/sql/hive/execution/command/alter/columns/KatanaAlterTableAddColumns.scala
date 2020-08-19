@@ -52,9 +52,10 @@ case class KatanaAlterTableAddColumns(
     * view, or datasource table with text, orc formats or external provider.
     * For datasource table, it currently only supports parquet, json, csv.
     */
-  private def verifyAlterTableAddColumn(conf: SQLConf,
-                                        catalog: SessionCatalog,
-                                        table: TableIdentifier): CatalogTable = {
+  private def verifyAlterTableAddColumn(
+      conf: SQLConf,
+      catalog: SessionCatalog,
+      table: TableIdentifier): CatalogTable = {
     val catalogTable = catalog.getTempViewOrPermanentTableMetadata(table)
 
     if (catalogTable.tableType == CatalogTableType.VIEW) {

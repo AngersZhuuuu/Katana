@@ -101,14 +101,15 @@ case class KatanaAlterTableRecoverPartitions(
     Seq.empty[Row]
   }
 
-  private def scanPartitions(fs: FileSystem,
-                             filter: PathFilter,
-                             path: Path,
-                             spec: TablePartitionSpec,
-                             partitionNames: Seq[String],
-                             threshold: Int,
-                             resolver: Resolver,
-                             evalTaskSupport: ForkJoinTaskSupport): GenSeq[(TablePartitionSpec, Path)] = {
+  private def scanPartitions(
+      fs: FileSystem,
+      filter: PathFilter,
+      path: Path,
+      spec: TablePartitionSpec,
+      partitionNames: Seq[String],
+      threshold: Int,
+      resolver: Resolver,
+      evalTaskSupport: ForkJoinTaskSupport): GenSeq[(TablePartitionSpec, Path)] = {
     if (partitionNames.isEmpty) {
       return Seq(spec -> path)
     }
@@ -146,11 +147,11 @@ case class KatanaAlterTableRecoverPartitions(
   }
 
   private def gatherPartitionStats(
-                                    spark: SparkSession,
-                                    partitionSpecsAndLocs: GenSeq[(TablePartitionSpec, Path)],
-                                    fs: FileSystem,
-                                    pathFilter: PathFilter,
-                                    threshold: Int): GenMap[String, PartitionStatistics] = {
+      spark: SparkSession,
+      partitionSpecsAndLocs: GenSeq[(TablePartitionSpec, Path)],
+      fs: FileSystem,
+      pathFilter: PathFilter,
+      threshold: Int): GenMap[String, PartitionStatistics] = {
     if (partitionSpecsAndLocs.length > threshold) {
       val hadoopConf = spark.sessionState.newHadoopConf()
       val serializableConfiguration = new SerializableConfiguration(hadoopConf)
@@ -180,11 +181,12 @@ case class KatanaAlterTableRecoverPartitions(
     }
   }
 
-  private def addPartitions(catalog: SessionCatalog,
-                            tableName: TableIdentifier,
-                            table: CatalogTable,
-                            partitionSpecsAndLocs: GenSeq[(TablePartitionSpec, Path)],
-                            partitionStats: GenMap[String, PartitionStatistics]): Unit = {
+  private def addPartitions(
+      catalog: SessionCatalog,
+      tableName: TableIdentifier,
+      table: CatalogTable,
+      partitionSpecsAndLocs: GenSeq[(TablePartitionSpec, Path)],
+      partitionStats: GenMap[String, PartitionStatistics]): Unit = {
     val total = partitionSpecsAndLocs.length
     var done = 0L
     // Hive metastore may not have enough memory to handle millions of partitions in single RPC,

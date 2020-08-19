@@ -38,7 +38,11 @@ case class KatanaAlterViewAs(
     Seq.empty[Row]
   }
 
-  private def alterPermanentView(catalog: SessionCatalog, originOldTableIdentifier: TableIdentifier, session: SparkSession, analyzedPlan: LogicalPlan): Unit = {
+  private def alterPermanentView(
+      catalog: SessionCatalog,
+      originOldTableIdentifier: TableIdentifier,
+      session: SparkSession,
+      analyzedPlan: LogicalPlan): Unit = {
     val viewMeta = catalog.getTableMetadata(originOldTableIdentifier)
     if (viewMeta.tableType != CatalogTableType.VIEW) {
       throw new AnalysisException(s"${viewMeta.identifier} is not a view.")

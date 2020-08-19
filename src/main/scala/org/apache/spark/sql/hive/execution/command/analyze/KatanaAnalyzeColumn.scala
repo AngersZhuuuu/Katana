@@ -33,10 +33,17 @@ case class KatanaAnalyzeColumn(
     if (tableMeta.tableType == CatalogTableType.VIEW) {
       throw new AnalysisException("ANALYZE TABLE is not supported on views.")
     }
-    val sizeInBytes = KatanaCommandUtils.calculateTotalSize(catalog, delegate.tableIdent, session.sessionState, sparkSession, tableMeta)
+    val sizeInBytes =
+      KatanaCommandUtils.calculateTotalSize(
+        catalog, delegate.tableIdent,
+        session.sessionState, sparkSession, tableMeta)
 
     // Compute stats for each column
-    val (rowCount, newColStats) = computeColumnStats(sparkSession, delegate.tableIdent, delegate.columnNames)
+    val (rowCount, newColStats) =
+      computeColumnStats(
+        sparkSession,
+        delegate.tableIdent,
+        delegate.columnNames)
 
     // We also update table-level stats in order to keep them consistent with column-level stats.
     val statistics = CatalogStatistics(
@@ -55,9 +62,10 @@ case class KatanaAnalyzeColumn(
    *
    * @return (row count, map from column name to CatalogColumnStats)
    */
-  private def computeColumnStats(sparkSession: SparkSession,
-                                 tableIdent: TableIdentifier,
-                                 columnNames: Seq[String]): (Long, Map[String, CatalogColumnStat]) = {
+  private def computeColumnStats(
+      sparkSession: SparkSession,
+      tableIdent: TableIdentifier,
+      columnNames: Seq[String]): (Long, Map[String, CatalogColumnStat]) = {
 
     val conf = sparkSession.sessionState.conf
     val relation = sparkSession.table(tableIdent).logicalPlan
@@ -108,9 +116,9 @@ case class KatanaAnalyzeColumn(
 
   /** Computes percentiles for each attribute. */
   private def computePercentiles(
-                                  attributesToAnalyze: Seq[Attribute],
-                                  sparkSession: SparkSession,
-                                  relation: LogicalPlan): AttributeMap[ArrayData] = {
+      attributesToAnalyze: Seq[Attribute],
+      sparkSession: SparkSession,
+      relation: LogicalPlan): AttributeMap[ArrayData] = {
     val attrsToGenHistogram = if (conf.histogramEnabled) {
       attributesToAnalyze.filter(a => supportsHistogram(a.dataType))
     } else {
@@ -175,9 +183,9 @@ case class KatanaAnalyzeColumn(
    * as a result should stay in sync with it.
    */
   private def statExprs(
-                         col: Attribute,
-                         conf: SQLConf,
-                         colPercentiles: AttributeMap[ArrayData]): CreateNamedStruct = {
+      col: Attribute,
+      conf: SQLConf,
+      colPercentiles: AttributeMap[ArrayData]): CreateNamedStruct = {
     def struct(exprs: Expression*): CreateNamedStruct = CreateStruct(exprs.map { expr =>
       expr.transformUp { case af: AggregateFunction => af.toAggregateExpression() }
     })
@@ -229,10 +237,10 @@ case class KatanaAnalyzeColumn(
 
   /** Convert a struct for column stats (defined in `statExprs`) into [[ColumnStat]]. */
   private def rowToColumnStat(
-                               row: InternalRow,
-                               attr: Attribute,
-                               rowCount: Long,
-                               percentiles: Option[ArrayData]): ColumnStat = {
+      row: InternalRow,
+      attr: Attribute,
+      rowCount: Long,
+      percentiles: Option[ArrayData]): ColumnStat = {
     // The first 6 fields are basic column stats, the 7th is ndvs for histogram bins.
     val cs = ColumnStat(
       distinctCount = Option(BigInt(row.getLong(0))),

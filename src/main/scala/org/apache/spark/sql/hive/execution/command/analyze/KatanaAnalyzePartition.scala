@@ -96,10 +96,11 @@ case class KatanaAnalyzePartition(
     Seq.empty[Row]
   }
 
-  private def calculateRowCountsPerPartition(sparkSession: SparkSession,
-                                             tableIdentifierWithSchema: TableIdentifier,
-                                             tableMeta: CatalogTable,
-                                             partitionValueSpec: Option[TablePartitionSpec]): Map[TablePartitionSpec, BigInt] = {
+  private def calculateRowCountsPerPartition(
+      sparkSession: SparkSession,
+      tableIdentifierWithSchema: TableIdentifier,
+      tableMeta: CatalogTable,
+      partitionValueSpec: Option[TablePartitionSpec]): Map[TablePartitionSpec, BigInt] = {
     val filter = if (partitionValueSpec.isDefined) {
       val filters = partitionValueSpec.get.map {
         case (columnName, value) => EqualTo(UnresolvedAttribute(columnName), Literal(value))
