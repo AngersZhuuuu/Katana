@@ -22,13 +22,14 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
  *       因为原油的InsertIntoHiveTable使用的是默认的SparkSession的session catalog
  *       在这里使用 KatanaInsertIntoHiveTable 做替换
  */
-case class KatanaInsertIntoHiveTable(table: CatalogTable,
-                                     partition: Map[String, Option[String]],
-                                     query: LogicalPlan,
-                                     overwrite: Boolean,
-                                     ifPartitionNotExists: Boolean,
-                                     outputColumnNames: Seq[String])
-                                    (@transient private val katana: KatanaContext)
+case class KatanaInsertIntoHiveTable(
+    table: CatalogTable,
+    partition: Map[String, Option[String]],
+    query: LogicalPlan,
+    overwrite: Boolean,
+    ifPartitionNotExists: Boolean,
+    outputColumnNames: Seq[String])
+    (@transient private val katana: KatanaContext)
   extends KatanaSaveAsHiveFile {
 
 

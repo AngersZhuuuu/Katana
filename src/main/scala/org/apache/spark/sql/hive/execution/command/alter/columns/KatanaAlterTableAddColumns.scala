@@ -19,8 +19,11 @@ import scala.util.control.NonFatal
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 18:33
   */
-case class KatanaAlterTableAddColumns(delegate: AlterTableAddColumnsCommand)
-                                     (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaAlterTableAddColumns(
+    delegate: AlterTableAddColumnsCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
+
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val session = CatalogSchemaUtil.getSession(delegate.table.catalog, sparkSession, katana)
     val catalog = session.sessionState.catalog

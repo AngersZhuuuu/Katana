@@ -15,8 +15,10 @@ import org.apache.spark.sql.types.MetadataBuilder
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 15:07
   */
-case class KatanaCreateView(delegate: CreateViewCommand)
-                           (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaCreateView(
+    delegate: CreateViewCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
 
   import ViewHelper._
 

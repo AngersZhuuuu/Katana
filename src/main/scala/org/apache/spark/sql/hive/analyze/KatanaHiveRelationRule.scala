@@ -11,9 +11,11 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
   * @author angers.zhu@gmail.com
   * @date 2019/5/28 9:51
   */
-case class KatanaHiveRelationRule(getOrCreateKatanaContext: SparkSession => KatanaContext)
-                                 (sparkSession: SparkSession)
+case class KatanaHiveRelationRule(
+    getOrCreateKatanaContext: SparkSession => KatanaContext)
+    (sparkSession: SparkSession)
   extends Rule[LogicalPlan] {
+
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
 
   override def apply(plan: LogicalPlan): LogicalPlan = {

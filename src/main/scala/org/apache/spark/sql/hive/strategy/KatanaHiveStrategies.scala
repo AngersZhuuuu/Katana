@@ -13,15 +13,18 @@ import org.apache.spark.sql.hive.execution.KatanaHiveTableScanExec
  * @author angers.zhu@gmail.com
  * @date 2019/5/28 13:30
  */
-case class KatanaHiveStrategies(getOrCreateKatanaContext: SparkSession => KatanaContext)
-                               (sparkSession: SparkSession) extends Strategy {
+case class KatanaHiveStrategies(
+    getOrCreateKatanaContext: SparkSession => KatanaContext)
+    (sparkSession: SparkSession)
+  extends Strategy {
 
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
 
-  def pruneFilterProject(projectList: Seq[NamedExpression],
-                         filterPredicates: Seq[Expression],
-                         prunePushedDownFilters: Seq[Expression] => Seq[Expression],
-                         scanBuilder: Seq[Attribute] => SparkPlan): SparkPlan = {
+  def pruneFilterProject(
+      projectList: Seq[NamedExpression],
+      filterPredicates: Seq[Expression],
+      prunePushedDownFilters: Seq[Expression] => Seq[Expression],
+      scanBuilder: Seq[Attribute] => SparkPlan): SparkPlan = {
 
     val projectSet = AttributeSet(projectList.flatMap(_.references))
     val filterSet = AttributeSet(filterPredicates.flatMap(_.references))

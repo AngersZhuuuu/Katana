@@ -10,8 +10,10 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 15:02
   */
-case class KatanaCreateFunction(delegate: CreateFunctionCommand)
-                               (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaCreateFunction(
+    delegate: CreateFunctionCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
 
   if (delegate.ignoreIfExists && delegate.replace) {
     throw new AnalysisException("CREATE FUNCTION with both IF NOT EXISTS and REPLACE" +

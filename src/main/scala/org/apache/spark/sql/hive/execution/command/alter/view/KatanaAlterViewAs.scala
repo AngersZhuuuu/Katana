@@ -12,8 +12,9 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 17:22
   */
-case class KatanaAlterViewAs(delegate: AlterViewAsCommand)
-                            (@transient private val katana: KatanaContext)
+case class KatanaAlterViewAs(
+    delegate: AlterViewAsCommand)
+    (@transient private val katana: KatanaContext)
   extends RunnableCommand {
 
   import ViewHelper._

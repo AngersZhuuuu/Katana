@@ -16,12 +16,13 @@ import org.apache.spark.sql.catalyst.catalog.{CatalogStorageFormat, CatalogTable
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.hive.KatanaContext
 
-case class KatanaInsertIntoDir(isLocal: Boolean,
-                               storage: CatalogStorageFormat,
-                               query: LogicalPlan,
-                               overwrite: Boolean,
-                               outputColumnNames: Seq[String])
-                              (@transient private val katana: KatanaContext)
+case class KatanaInsertIntoDir(
+    isLocal: Boolean,
+    storage: CatalogStorageFormat,
+    query: LogicalPlan,
+    overwrite: Boolean,
+    outputColumnNames: Seq[String])
+    (@transient private val katana: KatanaContext)
   extends KatanaSaveAsHiveFile {
 
   override def run(sparkSession: SparkSession, child: SparkPlan): Seq[Row] = {

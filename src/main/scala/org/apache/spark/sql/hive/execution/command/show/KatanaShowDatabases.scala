@@ -20,9 +20,11 @@ import org.apache.spark.sql.types.StringType
  * @author angers.zhu@gmail.com
  * @date 2019/5/28 15:53
  */
-case class KatanaShowDatabases(delegate: ShowDatabasesCommand)
-                              (@transient private val katana: KatanaContext)
+case class KatanaShowDatabases(
+    delegate: ShowDatabasesCommand)
+    (@transient private val katana: KatanaContext)
   extends RunnableCommand {
+
   override val output: Seq[Attribute] = {
     AttributeReference("catalog", StringType, nullable = false)() ::
       AttributeReference("databaseName", StringType, nullable = false)() :: Nil

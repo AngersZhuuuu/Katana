@@ -8,8 +8,11 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 17:20
   */
-case class KatanaAlterTableUnsetProperties(delegate: AlterTableUnsetPropertiesCommand)
-                                          (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaAlterTableUnsetProperties(
+    delegate: AlterTableUnsetPropertiesCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
+
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog = CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, sparkSession, katana)
 

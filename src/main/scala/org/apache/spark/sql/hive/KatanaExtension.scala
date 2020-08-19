@@ -19,7 +19,7 @@ import scala.collection.mutable
  */
 class KatanaExtension extends (SparkSessionExtensions => Unit) with Logging {
   override def apply(sessionExtensions: SparkSessionExtensions): Unit = {
-    logInfo("Recreate KatanaExtension again.....")
+    logInfo("Apply KatanaExtension .....")
     type RuleBuilder = SparkSession => Rule[LogicalPlan]
     type StrategyBuilder = SparkSession => Strategy
     type ParserBuilder = (SparkSession, ParserInterface) => ParserInterface
@@ -39,36 +39,13 @@ class KatanaExtension extends (SparkSessionExtensions => Unit) with Logging {
 }
 
 object KatanaExtension {
-  private val katanaContext = new ThreadLocal[KatanaContext]()
-  //  Avoid re-use in ThriftServer Scenario
-  private val katanaStatus = new ThreadLocal[KatanaStatus.Value]()
-  private val CONTEXT_LOCK = new Object()
-
-  def constructControl(status: KatanaStatus.Value): Unit = {
-    katanaStatus.set(status)
-  }
 
   private val user2KatanaContext = mutable.HashMap.empty[String, KatanaContext]
   private val keyLock = new KeyLock[String]
 
-  //  def getOrCreateKatanaContext(sparkSession: SparkSession,
-  //                               ugi: UserGroupInformation): KatanaContext = CONTEXT_LOCK.synchronized {
-  //    if (katanaStatus.get() == null ||
-  //      (katanaContext.get() != null && katanaStatus.get() != CONSTRUCTED) ||
-  //      (katanaContext.get() != null && katanaContext.get().sessionId != sparkSession.hashCode()) ||
-  //      (katanaContext.get() != null && katanaContext.get().user != ugi.getShortUserName)) {
-  //      katanaContext.remove()
-  //      val katana = new KatanaContext(sparkSession, ugi.getShortUserName)
-  //      katana.initial()
-  //      katanaContext.set(katana)
-  //      katanaStatus.set(CONSTRUCTED)
-  //    }
-  //    katanaContext.get
-  //  }
-
-
-  def getOrCreateKatanaContext(sparkSession: SparkSession,
-                               ugi: UserGroupInformation): KatanaContext = {
+  def getOrCreateKatanaContext(
+      sparkSession: SparkSession,
+      ugi: UserGroupInformation): KatanaContext = {
     keyLock.withLock(ugi.getShortUserName) {
       if (user2KatanaContext.contains(ugi.getShortUserName)) {
         user2KatanaContext(ugi.getShortUserName)

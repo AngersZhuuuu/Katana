@@ -22,7 +22,10 @@ import scala.concurrent.duration.Duration
  * @author angers.zhu@gmail.com
  * @date 2019/5/28 19:27
  */
-class KatanaContext(val sparkSession: SparkSession, val user: String) extends Logging {
+class KatanaContext(
+    val sparkSession: SparkSession,
+    val user: String)
+  extends Logging {
 
   import KatanaContext._
 
@@ -78,8 +81,9 @@ class KatanaContext(val sparkSession: SparkSession, val user: String) extends Lo
     initialPool.get.allowCoreThreadTimeOut(false)
   }
 
-  def initialExternalSession(sparkSession: SparkSession,
-                             ugi: UserGroupInformation): Unit = OBJECT_LOC synchronized {
+  def initialExternalSession(
+      sparkSession: SparkSession,
+      ugi: UserGroupInformation): Unit = OBJECT_LOC synchronized {
     INTERNAL_HMS_NAME = sparkSession.sparkContext.conf.get(KatanaConf.INTERNAL_HMS_NAME, INTERNAL_HMS_NAME_DEFAULT)
     logInfo(s"Katana internal HMS alias is ${INTERNAL_HMS_NAME}")
     val catalogConf = sparkSession.sparkContext.conf.get(KatanaConf.MULTI_HIVE_INSTANCE)
@@ -102,11 +106,12 @@ class KatanaContext(val sparkSession: SparkSession, val user: String) extends Lo
     }
   }
 
-  def initialHiveCatalogAndSharedState(sparkContext: SparkContext,
-                                       catalog: String,
-                                       warehouse: String,
-                                       url: String,
-                                       ugi: UserGroupInformation): SparkSession = {
+  def initialHiveCatalogAndSharedState(
+      sparkContext: SparkContext,
+      catalog: String,
+      warehouse: String,
+      url: String,
+      ugi: UserGroupInformation): SparkSession = {
     val sparkSession = Promise[SparkSession]()
     val initialSparkSessionThread = new Runnable {
       override def run(): Unit = {

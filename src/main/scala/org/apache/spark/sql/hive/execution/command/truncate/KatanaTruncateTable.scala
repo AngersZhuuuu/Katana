@@ -14,8 +14,9 @@ import scala.util.control.NonFatal
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 10:11
   */
-case class KatanaTruncateTable(delegate: TruncateTableCommand)
-                              (@transient private val katana: KatanaContext)
+case class KatanaTruncateTable(
+    delegate: TruncateTableCommand)
+    (@transient private val katana: KatanaContext)
   extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {

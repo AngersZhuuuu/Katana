@@ -10,8 +10,10 @@ import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 17:08
   */
-case class KatanaAlterTableSetLocation(delegate: AlterTableSetLocationCommand)
-                                      (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaAlterTableSetLocation(
+    delegate: AlterTableSetLocationCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val session = CatalogSchemaUtil.getSession(delegate.tableName.catalog, sparkSession, katana)

@@ -19,8 +19,10 @@ import scala.collection.parallel.ForkJoinTaskSupport
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 18:21
   */
-case class KatanaAlterTableRecoverPartitions(delegate: AlterTableRecoverPartitionsCommand)
-                                            (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaAlterTableRecoverPartitions(
+    delegate: AlterTableRecoverPartitionsCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
 
   // These are list of statistics that can be collected quickly without requiring a scan of the data
   // see https://github.com/apache/hive/blob/master/

@@ -9,15 +9,17 @@ import org.apache.spark.sql.catalyst.catalog.SessionCatalog
  */
 object CatalogSchemaUtil {
 
-  def getCatalog(catalog: Option[String],
-                 sparkSession: SparkSession,
-                 katana: KatanaContext): SessionCatalog = {
+  def getCatalog(
+      catalog: Option[String],
+      sparkSession: SparkSession,
+      katana: KatanaContext): SessionCatalog = {
     getSession(catalog, sparkSession, katana).sessionState.catalog
   }
 
-  def getSession(catalog: Option[String],
-                 sparkSession: SparkSession,
-                 katana: KatanaContext): SparkSession = {
+  def getSession(
+      catalog: Option[String],
+      sparkSession: SparkSession,
+      katana: KatanaContext): SparkSession = {
     catalog match {
       case None =>
         katana.getActiveSession().getOrElse(sparkSession)
@@ -32,8 +34,9 @@ object CatalogSchemaUtil {
     }
   }
 
-  def getCatalogName(catalog: SessionCatalog,
-                     katana: KatanaContext): Option[String] = {
+  def getCatalogName(
+      catalog: SessionCatalog,
+      katana: KatanaContext): Option[String] = {
     Option(
       katana.sessions
         .find(_._2.sessionState.catalog == catalog)

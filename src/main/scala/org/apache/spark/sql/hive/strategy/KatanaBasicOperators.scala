@@ -21,8 +21,9 @@ import org.apache.spark.sql.hive.execution.command.truncate.KatanaTruncateTable
  * @author angers.zhu@gmail.com
  * @date 2019/5/29 9:32
  */
-case class KatanaBasicOperators(getOrCreateKatanaContext: SparkSession => KatanaContext)
-                               (sparkSession: SparkSession) extends Strategy {
+case class KatanaBasicOperators(
+    getOrCreateKatanaContext: SparkSession => KatanaContext)
+    (sparkSession: SparkSession) extends Strategy {
 
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
 

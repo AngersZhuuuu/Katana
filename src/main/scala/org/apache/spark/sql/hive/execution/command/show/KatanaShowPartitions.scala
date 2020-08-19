@@ -11,8 +11,11 @@ import org.apache.spark.sql.types.StringType
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 14:01
   */
-case class KatanaShowPartitions(delegate: ShowPartitionsCommand)
-                               (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaShowPartitions(
+    delegate: ShowPartitionsCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
+
   override val output: Seq[Attribute] = {
     AttributeReference("partition", StringType, nullable = false)() :: Nil
   }

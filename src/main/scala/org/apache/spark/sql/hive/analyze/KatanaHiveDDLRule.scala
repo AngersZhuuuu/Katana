@@ -14,8 +14,10 @@ import org.apache.spark.sql.hive.execution.command.show._
  * @author angers.zhu@gmail.com
  * @date 2019/5/28 15:39
  */
-case class KatanaHiveDDLRule(getOrCreateKatanaContext: SparkSession => KatanaContext)
-                            (sparkSession: SparkSession) extends Rule[LogicalPlan] {
+case class KatanaHiveDDLRule(
+    getOrCreateKatanaContext: SparkSession => KatanaContext)
+    (sparkSession: SparkSession)
+  extends Rule[LogicalPlan] {
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformUp {

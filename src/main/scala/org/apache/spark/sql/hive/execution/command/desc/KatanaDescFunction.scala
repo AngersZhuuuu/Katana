@@ -13,8 +13,11 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 11:01
   */
-case class KatanaDescFunction(delegate: DescribeFunctionCommand)
-                             (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaDescFunction(
+    delegate: DescribeFunctionCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
+
   override val output: Seq[Attribute] = {
     val schema = StructType(StructField("function_desc", StringType, nullable = false) :: Nil)
     schema.toAttributes

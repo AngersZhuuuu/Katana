@@ -7,7 +7,9 @@ import org.apache.spark.sql.execution.command.{ClearCacheCommand, RunnableComman
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 11:05
   */
-case class KatanaClearCache(delegate: ClearCacheCommand) extends RunnableCommand {
+case class KatanaClearCache(delegate: ClearCacheCommand)
+  extends RunnableCommand {
+
   override def run(sparkSession: SparkSession): Seq[Row] = {
     sparkSession.catalog.clearCache()
     Seq.empty[Row]

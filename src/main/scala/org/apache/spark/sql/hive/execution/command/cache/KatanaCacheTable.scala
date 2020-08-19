@@ -8,7 +8,9 @@ import org.apache.spark.sql.execution.command.{CacheTableCommand, RunnableComman
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 11:04
   */
-case class KatanaCacheTable(delegate: CacheTableCommand) extends RunnableCommand {
+case class KatanaCacheTable(delegate: CacheTableCommand)
+  extends RunnableCommand {
+
   require(delegate.plan.isEmpty || delegate.tableIdent.database.isEmpty,
     "Database name is not allowed in CACHE TABLE AS SELECT")
 

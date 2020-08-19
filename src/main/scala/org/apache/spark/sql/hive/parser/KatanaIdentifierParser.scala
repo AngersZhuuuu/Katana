@@ -1,6 +1,5 @@
 package org.apache.spark.sql.hive.parser
 
-import org.apache.hadoop.security.UserGroupInformation
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.{FunctionIdentifier, TableIdentifier}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
@@ -18,9 +17,11 @@ import org.apache.spark.SparkException
  * @author angers.zhu@gmail.com
  * @date 2019/5/31 14:02
  */
-case class KatanaIdentifierParser(getOrCreateKatanaContext: SparkSession => KatanaContext)
-                                 (sparkSession: SparkSession,
-                                  delegate: ParserInterface) extends ParserInterface {
+case class KatanaIdentifierParser(
+    getOrCreateKatanaContext: SparkSession => KatanaContext)
+    (sparkSession: SparkSession,
+     delegate: ParserInterface)
+  extends ParserInterface {
 
   private val katanaContext: KatanaContext = getOrCreateKatanaContext(sparkSession)
   private lazy val internal = new SparkSqlParser(sparkSession.sqlContext.conf)

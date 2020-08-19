@@ -8,8 +8,9 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 
-case class KatanaShowFunctions(delegate: ShowFunctionsCommand)
-                              (@transient private val katana: KatanaContext)
+case class KatanaShowFunctions(
+    delegate: ShowFunctionsCommand)
+    (@transient private val katana: KatanaContext)
   extends RunnableCommand {
 
   override val output: Seq[Attribute] = {

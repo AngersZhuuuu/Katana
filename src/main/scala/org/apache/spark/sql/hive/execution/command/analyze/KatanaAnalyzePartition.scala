@@ -15,9 +15,11 @@ import org.apache.spark.sql.hive.execution.command.KatanaCommandUtils
  * @author angers.zhu@gmail.com
  * @date 2019/5/30 9:19
  */
-case class KatanaAnalyzePartition(delegate: AnalyzePartitionCommand)
-                                 (@transient private val katana: KatanaContext)
+case class KatanaAnalyzePartition(
+    delegate: AnalyzePartitionCommand)
+    (@transient private val katana: KatanaContext)
   extends RunnableCommand {
+
   private def getPartitionSpec(table: CatalogTable): Option[TablePartitionSpec] = {
     val normalizedPartitionSpec =
       PartitioningUtils.normalizePartitionSpec(delegate.partitionSpec, table.partitionColumnNames,

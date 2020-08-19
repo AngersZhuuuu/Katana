@@ -13,11 +13,12 @@ import scala.util.control.NonFatal
  * @author angers.zhu@gmail.com
  * @date 2019/5/29 12:05
  */
-case class KatanaCreateHiveTableAsSelectCommand(tableDesc: CatalogTable,
-                                                query: LogicalPlan,
-                                                outputColumnNames: Seq[String],
-                                                mode: SaveMode)
-                                               (@transient private val katana: KatanaContext)
+case class KatanaCreateHiveTableAsSelectCommand(
+    tableDesc: CatalogTable,
+    query: LogicalPlan,
+    outputColumnNames: Seq[String],
+    mode: SaveMode)
+    (@transient private val katana: KatanaContext)
   extends DataWritingCommand {
 
   private val tableIdentifier = tableDesc.identifier

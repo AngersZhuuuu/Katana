@@ -14,8 +14,11 @@ import scala.collection.mutable.ArrayBuffer
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 10:47
   */
-case class KatanaDescTable(delegate: DescribeTableCommand)
-                          (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaDescTable(
+    delegate: DescribeTableCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
+
   override val output: Seq[Attribute] = Seq(
     // Column names are based on Hive.
     AttributeReference("col_name", StringType, nullable = false,
@@ -61,7 +64,9 @@ case class KatanaDescTable(delegate: DescribeTableCommand)
     result
   }
 
-  private def describePartitionInfo(table: CatalogTable, buffer: ArrayBuffer[Row]): Unit = {
+  private def describePartitionInfo(
+      table: CatalogTable,
+      buffer: ArrayBuffer[Row]): Unit = {
     if (table.partitionColumnNames.nonEmpty) {
       append(buffer, "# Partition Information", "", "")
       describeSchema(table.partitionSchema, buffer, header = true)
@@ -81,11 +86,12 @@ case class KatanaDescTable(delegate: DescribeTableCommand)
     }
   }
 
-  private def describeDetailedPartitionInfo(originTableIdentifier: TableIdentifier,
-                                            spark: SparkSession,
-                                            catalog: SessionCatalog,
-                                            metadata: CatalogTable,
-                                            result: ArrayBuffer[Row]): Unit = {
+  private def describeDetailedPartitionInfo(
+      originTableIdentifier: TableIdentifier,
+      spark: SparkSession,
+      catalog: SessionCatalog,
+      metadata: CatalogTable,
+      result: ArrayBuffer[Row]): Unit = {
     if (metadata.tableType == CatalogTableType.VIEW) {
       throw new AnalysisException(
         s"DESC PARTITION is not allowed on a view: ${originTableIdentifier.identifier}")
@@ -95,10 +101,11 @@ case class KatanaDescTable(delegate: DescribeTableCommand)
     if (delegate.isExtended) describeFormattedDetailedPartitionInfo(originTableIdentifier, metadata, partition, result)
   }
 
-  private def describeFormattedDetailedPartitionInfo(tableIdentifier: TableIdentifier,
-                                                     table: CatalogTable,
-                                                     partition: CatalogTablePartition,
-                                                     buffer: ArrayBuffer[Row]): Unit = {
+  private def describeFormattedDetailedPartitionInfo(
+      tableIdentifier: TableIdentifier,
+      table: CatalogTable,
+      partition: CatalogTablePartition,
+      buffer: ArrayBuffer[Row]): Unit = {
     append(buffer, "", "", "")
     append(buffer, "# Detailed Partition Information", "", "")
     append(buffer, "Database", table.database, "")
@@ -114,9 +121,10 @@ case class KatanaDescTable(delegate: DescribeTableCommand)
     table.storage.toLinkedHashMap.foreach(s => append(buffer, s._1, s._2, ""))
   }
 
-  private def describeSchema(schema: StructType,
-                             buffer: ArrayBuffer[Row],
-                             header: Boolean): Unit = {
+  private def describeSchema(
+      schema: StructType,
+      buffer: ArrayBuffer[Row],
+      header: Boolean): Unit = {
     if (header) {
       append(buffer, s"# ${output.head.name}", output(1).name, output(2).name)
     }
@@ -125,7 +133,11 @@ case class KatanaDescTable(delegate: DescribeTableCommand)
     }
   }
 
-  private def append(buffer: ArrayBuffer[Row], column: String, dataType: String, comment: String): Unit = {
+  private def append(
+      buffer: ArrayBuffer[Row],
+      column: String,
+      dataType: String,
+      comment: String): Unit = {
     buffer += Row(column, dataType, comment)
   }
 }

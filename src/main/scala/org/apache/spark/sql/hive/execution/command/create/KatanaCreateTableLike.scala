@@ -9,8 +9,11 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 14:51
   */
-case class KatanaCreateTableLike(delegate: CreateTableLikeCommand)
-                                (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaCreateTableLike(
+    delegate: CreateTableLikeCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
+
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalogTarget = CatalogSchemaUtil.getCatalog(delegate.targetTable.catalog, sparkSession, katana)
     val catalogSource = CatalogSchemaUtil.getCatalog(delegate.sourceTable.catalog, sparkSession, katana)

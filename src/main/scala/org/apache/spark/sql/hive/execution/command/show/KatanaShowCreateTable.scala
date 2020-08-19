@@ -13,8 +13,9 @@ import org.apache.spark.sql.types.StringType
  * @author angers.zhu@gmail.com
  * @date 2019/5/29 11:08
  */
-case class KatanaShowCreateTable(delegate: ShowCreateTableCommand)
-                                (@transient private val katana: KatanaContext)
+case class KatanaShowCreateTable(
+    delegate: ShowCreateTableCommand)
+    (@transient private val katana: KatanaContext)
   extends RunnableCommand {
 
   override val output: Seq[Attribute] = Seq(

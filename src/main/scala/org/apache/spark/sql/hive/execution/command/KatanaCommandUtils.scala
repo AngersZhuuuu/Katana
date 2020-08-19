@@ -19,7 +19,11 @@ import scala.util.control.NonFatal
 object KatanaCommandUtils extends Logging {
 
   /** Change statistics after changing data by commands. */
-  def updateTableStats(catalog: SessionCatalog, session: SparkSession, sparkSession: SparkSession, table: CatalogTable): Unit = {
+  def updateTableStats(
+      catalog: SessionCatalog,
+      session: SparkSession,
+      sparkSession: SparkSession,
+      table: CatalogTable): Unit = {
     if (table.stats.nonEmpty) {
       if (session.sessionState.conf.autoSizeUpdateEnabled) {
         val newTable = catalog.getTableMetadata(table.identifier)
@@ -32,7 +36,12 @@ object KatanaCommandUtils extends Logging {
     }
   }
 
-  def calculateTotalSize(catalog: SessionCatalog, tableIdentifierWithSchema: TableIdentifier, sessionState: SessionState, spark: SparkSession, catalogTable: CatalogTable): BigInt = {
+  def calculateTotalSize(
+      catalog: SessionCatalog,
+      tableIdentifierWithSchema: TableIdentifier,
+      sessionState: SessionState,
+      spark: SparkSession,
+      catalogTable: CatalogTable): BigInt = {
     if (catalogTable.partitionColumnNames.isEmpty) {
       calculateLocationSize(sessionState, tableIdentifierWithSchema, catalogTable.storage.locationUri)
     } else {
@@ -57,9 +66,10 @@ object KatanaCommandUtils extends Logging {
     }
   }
 
-  def calculateLocationSize(sessionState: SessionState,
-                            identifier: TableIdentifier,
-                            locationUri: Option[URI]): Long = {
+  def calculateLocationSize(
+      sessionState: SessionState,
+      identifier: TableIdentifier,
+      locationUri: Option[URI]): Long = {
     // This method is mainly based on
     // org.apache.hadoop.hive.ql.stats.StatsUtils.getFileSizeForTable(HiveConf, Table)
     // in Hive 0.13 (except that we do not use fs.getContentSummary).
@@ -110,9 +120,10 @@ object KatanaCommandUtils extends Logging {
     size
   }
 
-  def compareAndGetNewStats(oldStats: Option[CatalogStatistics],
-                            newTotalSize: BigInt,
-                            newRowCount: Option[BigInt]): Option[CatalogStatistics] = {
+  def compareAndGetNewStats(
+      oldStats: Option[CatalogStatistics],
+      newTotalSize: BigInt,
+      newRowCount: Option[BigInt]): Option[CatalogStatistics] = {
     val oldTotalSize = oldStats.map(_.sizeInBytes).getOrElse(BigInt(-1))
     val oldRowCount = oldStats.flatMap(_.rowCount).getOrElse(BigInt(-1))
     var newStats: Option[CatalogStatistics] = None

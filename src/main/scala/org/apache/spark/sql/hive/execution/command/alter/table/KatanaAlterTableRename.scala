@@ -11,8 +11,10 @@ import scala.util.control.NonFatal
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 16:57
   */
-case class KatanaAlterTableRename(delegate: AlterTableRenameCommand)
-                                 (@transient private val katana: KatanaContext)extends RunnableCommand {
+case class KatanaAlterTableRename(
+    delegate: AlterTableRenameCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
     // 不能跨 meta rename table

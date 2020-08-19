@@ -32,11 +32,12 @@ import scala.collection.JavaConverters._
   * @param partitionPruningPred An optional partition pruning predicate for partitioned table.
   */
 private[hive]
-case class KatanaHiveTableScanExec(requestedAttributes: Seq[Attribute],
-                                  relation: HiveTableRelation,
-                                  partitionPruningPred: Seq[Expression])(
-                                   @transient private val sparkSession: SparkSession,
-                                   @transient private val katana: KatanaContext)
+case class KatanaHiveTableScanExec(
+    requestedAttributes: Seq[Attribute],
+    relation: HiveTableRelation,
+    partitionPruningPred: Seq[Expression])
+    (@transient private val sparkSession: SparkSession,
+     @transient private val katana: KatanaContext)
   extends LeafExecNode with CastSupport {
 
   require(partitionPruningPred.isEmpty || relation.isPartitioned,

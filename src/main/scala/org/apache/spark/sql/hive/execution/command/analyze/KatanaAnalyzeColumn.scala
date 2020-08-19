@@ -20,8 +20,9 @@ import scala.collection.mutable
  * @author angers.zhu@gmail.com
  * @date 2019/5/30 9:26
  */
-case class KatanaAnalyzeColumn(delegate: AnalyzeColumnCommand)
-                              (@transient private val katana: KatanaContext)
+case class KatanaAnalyzeColumn(
+    delegate: AnalyzeColumnCommand)
+    (@transient private val katana: KatanaContext)
   extends RunnableCommand {
 
   override def run(sparkSession: SparkSession): Seq[Row] = {

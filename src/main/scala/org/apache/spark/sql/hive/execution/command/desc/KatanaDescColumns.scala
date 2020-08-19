@@ -14,8 +14,11 @@ import scala.collection.mutable.ArrayBuffer
   * @author angers.zhu@gmail.com
   * @date 2019/5/29 10:57
   */
-case class KatanaDescColumns(delegate: DescribeColumnCommand)
-                            (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaDescColumns(
+    delegate: DescribeColumnCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
+
   override val output: Seq[Attribute] = {
     Seq(
       AttributeReference("info_name", StringType, nullable = false,

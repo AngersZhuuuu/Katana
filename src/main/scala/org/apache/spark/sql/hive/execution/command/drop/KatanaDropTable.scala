@@ -11,8 +11,11 @@ import scala.util.control.NonFatal
  * @author angers.zhu@gmail.com
  * @date 2019/5/29 14:15
  */
-case class KatanaDropTable(delegate: DropTableCommand)
-                          (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaDropTable(
+    delegate: DropTableCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
+
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val catalog = CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, sparkSession, katana)
 

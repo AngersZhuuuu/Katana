@@ -10,16 +10,14 @@ import org.apache.spark.sql.types.{StructField, StructType}
   * @author angers.zhu@gmail.com
   * @date 2019/5/30 18:34
   */
-case class KatanaAlterTableChangeColumn(delegate: AlterTableChangeColumnCommand)
-                                       (@transient private val katana: KatanaContext) extends RunnableCommand {
+case class KatanaAlterTableChangeColumn(
+    delegate: AlterTableChangeColumnCommand)
+    (@transient private val katana: KatanaContext)
+  extends RunnableCommand {
 
   // TODO: support change column name/dataType/metadata/position.
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val catalog =
-      CatalogSchemaUtil.getCatalog(
-        delegate.tableName.catalog,
-        sparkSession,
-        katana)
+    val catalog = CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, sparkSession, katana)
 
     val table = catalog.getTableMetadata(delegate.tableName)
     val resolver = sparkSession.sessionState.conf.resolver
