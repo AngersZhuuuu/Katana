@@ -85,12 +85,13 @@ case class KatanaInsertIntoHiveTable(
     Seq.empty[Row]
   }
 
-  private def processInsert(sparkSession: SparkSession,
-                            externalCatalog: ExternalCatalog,
-                            hadoopConf: Configuration,
-                            tableDesc: TableDesc,
-                            tmpLocation: Path,
-                            child: SparkPlan): Unit = {
+  private def processInsert(
+      sparkSession: SparkSession,
+      externalCatalog: ExternalCatalog,
+      hadoopConf: Configuration,
+      tableDesc: TableDesc,
+      tmpLocation: Path,
+      child: SparkPlan): Unit = {
     val fileSinkConf = new FileSinkDesc(tmpLocation.toString, tableDesc, false)
 
     val numDynamicPartitions = partition.values.count(_.isEmpty)

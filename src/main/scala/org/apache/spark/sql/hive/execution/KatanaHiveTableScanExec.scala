@@ -43,7 +43,7 @@ case class KatanaHiveTableScanExec(
   require(partitionPruningPred.isEmpty || relation.isPartitioned,
     "Partition pruning predicates only supported for partitioned tables.")
 
-  val catalog = CatalogSchemaUtil.getCatalog(relation.tableMeta.identifier.catalog, sparkSession, katana)
+  @transient val catalog = CatalogSchemaUtil.getCatalog(relation.tableMeta.identifier.catalog, sparkSession, katana)
 
 
   override def conf: SQLConf = sparkSession.sessionState.conf
