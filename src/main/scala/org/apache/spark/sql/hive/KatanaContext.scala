@@ -47,11 +47,11 @@ class KatanaContext(
   private val catalog2ScratchDirs: HashMap[String, String] = HashMap.empty[String, String]
 
   def stagingDir(catalog: Option[String]): Option[String] = {
-    catalog.map(catalog2StagingDirs.getOrElse(_, null))
+    catalog.flatMap(catalog2StagingDirs.get)
   }
 
   def scratchDir(catalog: Option[String]): Option[String] = {
-    catalog.map(catalog2ScratchDirs.getOrElse(_, null))
+    catalog.flatMap(catalog2ScratchDirs.get)
   }
 
   def sessions: HashMap[String, SparkSession] = {

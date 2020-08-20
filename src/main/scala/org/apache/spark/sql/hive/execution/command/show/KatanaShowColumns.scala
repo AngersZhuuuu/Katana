@@ -7,12 +7,11 @@ import org.apache.spark.sql.hive.{CatalogSchemaUtil, KatanaContext}
 import org.apache.spark.sql.types.StringType
 
 /**
-  * @author angers.zhu@gmail.com
-  * @date 2019/5/29 10:12
-  */
+ * @author angers.zhu@gmail.com
+ * @date 2019/5/29 10:12
+ */
 case class KatanaShowColumns(
-   delegate: ShowColumnsCommand)
-   (@transient private val katana: KatanaContext)
+    delegate: ShowColumnsCommand)(@transient private val katana: KatanaContext)
   extends RunnableCommand {
 
   override val output: Seq[Attribute] = {
@@ -29,8 +28,12 @@ case class KatanaShowColumns(
         throw new AnalysisException(
           s"SHOW COLUMNS with conflicting databases: '$db' != '${delegate.tableName.database.get}'")
 
-      case (Some(db), None) =>
+      case (Some(_), None) =>
         CatalogSchemaUtil.getCatalog(delegate.tableName.catalog, sparkSession, katana)
+
+      case (Some(_), Some(c)) if c != delegate.tableName.catalog.orNull =>
+        throw new AnalysisException(
+          s"SHOW COLUMNS with conflicting catalog: '$c' != '${delegate.tableName.catalog.orNull}'")
 
       case (Some(db), Some(_)) if delegate.tableName.database.exists(!resolver(_, db)) =>
         throw new AnalysisException(

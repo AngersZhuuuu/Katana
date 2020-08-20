@@ -61,7 +61,7 @@ case class KatanaCreateHiveTableAsSelectCommand(
         // For CTAS, there is no static partition values to insert.
         val partition = createdTableMeta.partitionColumnNames.map(_ -> None).toMap
         KatanaInsertIntoHiveTable(
-          createdTableMeta,
+          createdTableMeta.copy(identifier = createdTableMeta.identifier.copy(catalog = tableIdentifier.catalog)),
           partition,
           query,
           overwrite = true,
