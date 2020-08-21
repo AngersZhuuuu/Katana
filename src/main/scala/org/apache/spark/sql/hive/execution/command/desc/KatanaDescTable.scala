@@ -29,7 +29,6 @@ case class KatanaDescTable(
       new MetadataBuilder().putString("comment", "comment of the column").build())()
   )
 
-
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val result = new ArrayBuffer[Row]
     val catalog = CatalogSchemaUtil.getCatalog(delegate.table.catalog, sparkSession, katana)
@@ -98,16 +97,25 @@ case class KatanaDescTable(
     }
     DDLUtils.verifyPartitionProviderIsHive(spark, metadata, "DESC PARTITION")
     val partition = catalog.getPartition(originTableIdentifier, delegate.partitionSpec)
-    if (delegate.isExtended) describeFormattedDetailedPartitionInfo(originTableIdentifier, metadata, partition, result)
+    if (delegate.isExtended) {
+      describeFormattedDetailedPartitionInfo(
+        originTableIdentifier,
+        metadata,
+        CatalogSchemaUtil.getCatalogName(catalog, katana),
+        partition,
+        result)
+    }
   }
 
   private def describeFormattedDetailedPartitionInfo(
       tableIdentifier: TableIdentifier,
       table: CatalogTable,
+      catalogName: Option[String],
       partition: CatalogTablePartition,
       buffer: ArrayBuffer[Row]): Unit = {
     append(buffer, "", "", "")
     append(buffer, "# Detailed Partition Information", "", "")
+    append(buffer, "# Catalog", catalogName.getOrElse(""), "")
     append(buffer, "Database", table.database, "")
     append(buffer, "Table", tableIdentifier.table, "")
     partition.toLinkedHashMap.foreach(s => append(buffer, s._1, s._2, ""))

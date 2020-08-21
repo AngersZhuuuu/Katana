@@ -28,7 +28,7 @@ case class KatanaDescDatabase(
     val dbMetadata: CatalogDatabase =
       catalog.getDatabaseMetadata(delegate.databaseName)
     val result =
-      Row("Catalog", catalogName) ::
+      Row("Catalog", catalogName.getOrElse("")) ::
         Row("Database Name", dbMetadata.name) ::
         Row("Description", dbMetadata.description) ::
         Row("Location", CatalogUtils.URIToString(dbMetadata.locationUri)) :: Nil
