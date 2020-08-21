@@ -30,6 +30,7 @@ case class KatanaAlterTableAddColumns(
     val catalogTable = verifyAlterTableAddColumn(session.sessionState.conf, catalog, delegate.table)
 
     try {
+      // all cache behavior done by spark's default SparkSession
       sparkSession.catalog.uncacheTable(delegate.table.quotedString)
     } catch {
       case NonFatal(e) =>
