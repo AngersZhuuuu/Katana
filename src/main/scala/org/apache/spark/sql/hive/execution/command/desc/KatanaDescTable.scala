@@ -32,7 +32,7 @@ case class KatanaDescTable(
   override def run(sparkSession: SparkSession): Seq[Row] = {
     val result = new ArrayBuffer[Row]
     val catalog = CatalogSchemaUtil.getCatalog(delegate.table.catalog, sparkSession, katana)
-
+    val catalogName = CatalogSchemaUtil.getCatalogName(catalog, katana)
     if (catalog.isTemporaryTable(delegate.table)) {
       if (delegate.partitionSpec.nonEmpty) {
         throw new AnalysisException(
@@ -54,9 +54,9 @@ case class KatanaDescTable(
       if (delegate.partitionSpec.nonEmpty) {
         // Outputs the partition-specific info for the DDL command:
         // "DESCRIBE [EXTENDED|FORMATTED] table_name PARTITION (partitionVal*)"
-        describeDetailedPartitionInfo(delegate.table, sparkSession, catalog, metadata, result)
+        describeDetailedPartitionInfo(delegate.table, sparkSession, catalog, catalogName, metadata, result)
       } else if (delegate.isExtended) {
-        describeFormattedTableInfo(metadata, result)
+        describeFormattedTableInfo(metadata, catalogName, result)
       }
     }
 
@@ -72,7 +72,10 @@ case class KatanaDescTable(
     }
   }
 
-  private def describeFormattedTableInfo(table: CatalogTable, buffer: ArrayBuffer[Row]): Unit = {
+  private def describeFormattedTableInfo(
+      table: CatalogTable,
+      catalogName: Option[String],
+      buffer: ArrayBuffer[Row]): Unit = {
     // The following information has been already shown in the previous outputs
     val excludedTableInfo = Seq(
       "Partition Columns",
@@ -80,6 +83,7 @@ case class KatanaDescTable(
     )
     append(buffer, "", "", "")
     append(buffer, "# Detailed Table Information", "", "")
+    append(buffer, "Catalog", catalogName.getOrElse(""), "")
     table.toLinkedHashMap.filterKeys(!excludedTableInfo.contains(_)).foreach {
       s => append(buffer, s._1, s._2, "")
     }
@@ -89,6 +93,7 @@ case class KatanaDescTable(
       originTableIdentifier: TableIdentifier,
       spark: SparkSession,
       catalog: SessionCatalog,
+      catalogName: Option[String],
       metadata: CatalogTable,
       result: ArrayBuffer[Row]): Unit = {
     if (metadata.tableType == CatalogTableType.VIEW) {
@@ -101,7 +106,7 @@ case class KatanaDescTable(
       describeFormattedDetailedPartitionInfo(
         originTableIdentifier,
         metadata,
-        CatalogSchemaUtil.getCatalogName(catalog, katana),
+        catalogName,
         partition,
         result)
     }
@@ -115,7 +120,7 @@ case class KatanaDescTable(
       buffer: ArrayBuffer[Row]): Unit = {
     append(buffer, "", "", "")
     append(buffer, "# Detailed Partition Information", "", "")
-    append(buffer, "# Catalog", catalogName.getOrElse(""), "")
+    append(buffer, "Catalog", catalogName.getOrElse(""), "")
     append(buffer, "Database", table.database, "")
     append(buffer, "Table", tableIdentifier.table, "")
     partition.toLinkedHashMap.foreach(s => append(buffer, s._1, s._2, ""))
