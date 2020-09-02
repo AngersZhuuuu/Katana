@@ -32,7 +32,7 @@ case class KatanaIdentifierParser(
     val currentDB = catalog.getCurrentDatabase
     val catalogName = CatalogSchemaUtil.getCatalogName(catalog, katanaContext)
     if (catalogName.isEmpty) {
-      throw new SparkException("Can't find current catalog")
+      throw new SparkException(s"Can't find catalog `${catalogName}`")
     } else {
       if (tableIdentifier.catalog.isEmpty && tableIdentifier.database.isEmpty) {
         TableIdentifier(
