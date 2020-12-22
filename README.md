@@ -32,15 +32,19 @@ spark.sql.extensions org.apache.spark.sql.hive.KatanaExtension
 spark.yarn.access.hadoopFileSystems hdfs://xxx, hdfs://yyy...etc
   
 // config mounted hive metastore with catalog name hive_catalog_1 & hive_catalog_2 ...
-spark.sql.katana.catalog.instances hive_catalog_1->hive_metastore_uri1_1,hive_metastore_uri1_2&&hive_catalog_2->hive_metastore_uri2_1,hive_metastore_uri2_2
-	
+spark.sql.katana.catalog.instances hive_catalog_1,hive_catalog_2
+
+// config each catalog's metastore uri
+spark.sql.katana.hive.metastore.uris.hive_catalog_1 hive_metastore_uri1
+spark.sql.katana.hive.metastore.uris.hive_catalog_1 hive_metastore_uri2
+
 // config each catalog corresponding hive metastore's warehouse path 
-spark.hive.metastore.warehouse.dir.hive_catalog_1 hdfs://hdfs_server_for_hive/path/to/warehouse2
-spark.hive.metastore.warehouse.dir.hive_catalog_2 hdfs://hdfs_server_for_hive/path/to/warehouse2
+spark.sql.katana.hive.metastore.warehouse.dir.hive_catalog_1 hdfs://hdfs_server_for_hive/path/to/warehouse2
+spark.sql.katana.hive.metastore.warehouse.dir.hive_catalog_2 hdfs://hdfs_server_for_hive/path/to/warehouse2
 
 // config each catalog's staging dir or scratch dir for insert data
-spark.hive.exec.stagingdir.hive_catalog_1 hdfs://hdfs_server_for_hivepath/to/stagingDir
-spark.hive.exec.stagingdir.hive_catalog_2 hdfs://hdfs_server_for_hivepath/to/stagingDir
+spark.sql.katana.hive.exec.stagingdir.hive_catalog_1 hdfs://hdfs_server_for_hivepath/to/stagingDir
+spark.sql.katana.hive.exec.stagingdir.hive_catalog_2 hdfs://hdfs_server_for_hivepath/to/stagingDir
 
 ```
 
